@@ -27,7 +27,7 @@ export default function TeamSidebar() {
       <div className="p-4 border-b border-white/10">
         <div className="flex flex-col">
           <span className="font-semibold text-white">Membre d'équipe</span>
-          <span className="text-xs text-white/70 italic">PLANCHAIS</span>
+          <span className="text-xs text-white/70 italic">CALDY</span>
         </div>
       </div>
 

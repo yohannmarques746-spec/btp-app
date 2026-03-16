@@ -8,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Building, Plus, Calendar, Clock, User, Image as ImageIcon, X } from 'lucide-react';
 import { useState, useCallback, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { useChantiers, Chantier, Client } from '@/context/ChantiersContext';
+import { useChantiers, Chantier } from '@/context/ChantiersContext';
 
 export default function ProjectsPage() {
-  const { chantiers, clients, addChantier, addClient } = useChantiers();
-  const [location] = useLocation();
+  const { chantiers, clients, addChantier } = useChantiers();
+  const [location, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
   const [newChantier, setNewChantier] = useState({
     nom: '',
     clientId: '',
@@ -22,6 +23,9 @@ export default function ProjectsPage() {
     images: [] as string[]
   });
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const filteredClients = clients.filter((client) =>
+    client.name.toLowerCase().includes(clientSearch.toLowerCase())
+  );
 
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -29,11 +33,12 @@ export default function ProjectsPage() {
       setUploadedImages(prev => [...prev, ...files]);
       files.forEach(file => {
         const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
+        reader.onload = (event) => {
+          const result = event.target?.result;
+          if (result) {
             setNewChantier(prev => ({
               ...prev,
-              images: [...prev.images, e.target.result as string]
+              images: [...prev.images, result as string]
             }));
           }
         };
@@ -73,15 +78,9 @@ export default function ProjectsPage() {
     setIsDialogOpen(false);
   };
 
-  const handleAddClient = () => {
-    const newClient: Client = {
-      id: Date.now().toString(),
-      name: `Client ${clients.length + 1}`,
-      email: '',
-      phone: ''
-    };
-    addClient(newClient);
-    setNewChantier(prev => ({ ...prev, clientId: newClient.id }));
+  const handleGoToCreateClient = () => {
+    setIsDialogOpen(false);
+    setLocation('/dashboard/clients?openDialog=true');
   };
 
   // Ouvrir la popup si le paramètre openDialog est présent dans l'URL
@@ -144,17 +143,30 @@ export default function ProjectsPage() {
                           <SelectValue placeholder="Sélectionner un client" />
                         </SelectTrigger>
                         <SelectContent className="bg-black/20 backdrop-blur-xl border-white/10">
-                          {clients.map((client) => (
-                            <SelectItem key={client.id} value={client.id} className="text-white">
-                              {client.name}
-                            </SelectItem>
-                          ))}
+                          <div className="p-2">
+                            <Input
+                              value={clientSearch}
+                              onChange={(e) => setClientSearch(e.target.value)}
+                              onKeyDown={(e) => e.stopPropagation()}
+                              placeholder="Rechercher un client par nom..."
+                              className="bg-black/30 border-white/10 text-white placeholder:text-white/50 h-9"
+                            />
+                          </div>
+                          {filteredClients.length > 0 ? (
+                            filteredClients.map((client) => (
+                              <SelectItem key={client.id} value={client.id} className="text-white">
+                                {client.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-sm text-white/60">Aucun client trouvé</div>
+                          )}
                         </SelectContent>
                       </Select>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={handleAddClient}
+                        onClick={handleGoToCreateClient}
                         className="text-white border-white/20 hover:bg-white/10"
                       >
                         <Plus className="h-4 w-4" />

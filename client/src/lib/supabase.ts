@@ -1,12 +1,11 @@
 import { supabase } from './supabaseClient';
 
-// Supabase client configuration
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://hvnjlxxcxfxvuwlmnwtw.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2bmpseHhjeGZ4dnV3bG1ud3R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NzA3ODIsImV4cCI6MjA3OTU0Njc4Mn0.SmL4eqGq8XLfbLOolxGdafLhS6eeTgYGGn1w9gcrWdU';
-
 // Helper function to get current user ID
 async function getCurrentUserId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser();
+  // #region agent log
+  fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'admin-code-debug-1',hypothesisId:'H1',location:'client/src/lib/supabase.ts:6',message:'getCurrentUserId resolved',data:{hasUser:Boolean(user)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   return user?.id || null;
 }
 
@@ -193,9 +192,16 @@ export async function getAdminCode(): Promise<AdminCode | null> {
       .limit(1)
       .single();
 
+    // #region agent log
+    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'admin-code-debug-1',hypothesisId:'H2',location:'client/src/lib/supabase.ts:191',message:'getAdminCode query result',data:{hasData:Boolean(data),errorMessage:error?.message||null,errorCode:(error as { code?: string } | null)?.code||null,errorDetails:(error as { details?: string } | null)?.details||null,errorHint:(error as { hint?: string } | null)?.hint||null,errorStatus:(error as { status?: number } | null)?.status||null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     if (error || !data) return null;
     return data;
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'admin-code-debug-1',hypothesisId:'H2',location:'client/src/lib/supabase.ts:198',message:'getAdminCode exception',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     console.error('Error getting admin code:', error);
     return null;
   }
@@ -216,7 +222,20 @@ export interface TeamInvitation {
 
 // Générer un token unique pour l'invitation
 function generateInvitationToken(): string {
-  return crypto.randomUUID() + '-' + Date.now().toString(36);
+  const hasRandomUUID =
+    typeof crypto !== 'undefined' &&
+    typeof (crypto as { randomUUID?: unknown }).randomUUID === 'function';
+
+  if (hasRandomUUID) {
+    try {
+      return `${crypto.randomUUID()}-${Date.now().toString(36)}`;
+    } catch {
+      // Fallback below
+    }
+  }
+
+  const fallback = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  return `inv_${fallback}`;
 }
 
 // Créer une invitation pour un membre d'équipe
@@ -306,6 +325,10 @@ export async function updateAdminCode(newCode: string): Promise<AdminCode | null
     const userId = await getCurrentUserId();
     if (!userId) throw new Error('User not authenticated');
 
+    // #region agent log
+    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'admin-code-debug-1',hypothesisId:'H3',location:'client/src/lib/supabase.ts:321',message:'updateAdminCode called',data:{hasUserId:Boolean(userId),newCodeLength:newCode?.trim().length||0},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     // First, get the existing admin code
     const existing = await getAdminCode();
     
@@ -322,6 +345,10 @@ export async function updateAdminCode(newCode: string): Promise<AdminCode | null
         .select()
         .single();
 
+      // #region agent log
+      fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'admin-code-debug-1',hypothesisId:'H4',location:'client/src/lib/supabase.ts:342',message:'update admin_codes result',data:{hasData:Boolean(data),errorMessage:error?.message||null,errorCode:(error as { code?: string } | null)?.code||null,errorDetails:(error as { details?: string } | null)?.details||null,errorHint:(error as { hint?: string } | null)?.hint||null,errorStatus:(error as { status?: number } | null)?.status||null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
       if (error) throw error;
       return data;
     } else {
@@ -335,10 +362,17 @@ export async function updateAdminCode(newCode: string): Promise<AdminCode | null
         .select()
         .single();
 
+      // #region agent log
+      fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'admin-code-debug-1',hypothesisId:'H5',location:'client/src/lib/supabase.ts:357',message:'insert admin_codes result',data:{hasData:Boolean(data),errorMessage:error?.message||null,errorCode:(error as { code?: string } | null)?.code||null,errorDetails:(error as { details?: string } | null)?.details||null,errorHint:(error as { hint?: string } | null)?.hint||null,errorStatus:(error as { status?: number } | null)?.status||null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
       if (error) throw error;
       return data;
     }
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'admin-code-debug-1',hypothesisId:'H3',location:'client/src/lib/supabase.ts:364',message:'updateAdminCode exception',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     console.error('Error updating admin code:', error);
     return null;
   }

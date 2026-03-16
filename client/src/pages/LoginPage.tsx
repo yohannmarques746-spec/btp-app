@@ -22,7 +22,7 @@ export default function LoginPage() {
   const [newAdminCode, setNewAdminCode] = useState("")
   const [, setLocation] = useLocation()
 
-  const colors = ["#72b9bb", "#b5d9d9", "#ffd1bd", "#ffebe0", "#8cc5b8", "#dbf4a4"]
+  const colors = ["#05070f", "#0b1324", "#111827", "#1f2937", "#1e3a8a", "#0f172a"]
 
   useEffect(() => {
     setMounted(true)
@@ -125,7 +125,7 @@ export default function LoginPage() {
               speed={0.42}
               offsetX={0.08}
             />
-            <div className="absolute inset-0 pointer-events-none bg-white/20 dark:bg-black/25" />
+            <div className="absolute inset-0 pointer-events-none bg-black/45 dark:bg-black/60" />
           </>
         )}
       </div>
@@ -228,7 +228,7 @@ export default function LoginPage() {
               )}
 
               {/* Input pour code manuel */}
-              <form className="space-y-4 mt-4">
+              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div>
                   <Input
                     type="text"
@@ -241,11 +241,10 @@ export default function LoginPage() {
                 </div>
 
                 <Button
-                  type="button"
+                  type="submit"
                   className="w-full bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors h-12 text-base font-semibold"
-                  onClick={() => setLocation("/dashboard")}
                 >
-                  Accéder au dashboard
+                  Se connecter
                 </Button>
               </form>
             </div>

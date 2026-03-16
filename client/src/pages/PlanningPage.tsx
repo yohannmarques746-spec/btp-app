@@ -1,8 +1,11 @@
 import { PageWrapper } from '@/components/PageWrapper';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Calendar, Building, Clock, User } from 'lucide-react';
-import { useChantiers } from '@/context/ChantiersContext';
-import { useState, useMemo } from 'react';
+import { useChantiers, Chantier } from '@/context/ChantiersContext';
+import { useState, useMemo, useEffect, useRef } from 'react';
 
 // Fonction pour parser la durée et calculer la date de fin
 function calculateEndDate(dateDebut: string, duree: string): Date {
@@ -12,7 +15,7 @@ function calculateEndDate(dateDebut: string, duree: string): Date {
   // Parser différentes formats de durée
   let daysToAdd = 0;
   
-  if (dureeLower.includes('semaine') || dureeLower.includes('sem')) {
+  if (dureeLower.includes('semaine') || dureeLower.includes('sem') || dureeLower.includes('w')) {
     const weeks = parseInt(dureeLower.match(/\d+/)?.[0] || '1');
     daysToAdd = weeks * 7;
   } else if (dureeLower.includes('mois')) {
@@ -76,9 +79,40 @@ function getDaysInMonth(year: number, month: number) {
   return days;
 }
 
+function formatDateForInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function buildDurationFromDates(startDate: string, endDate: string): string {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  const diffMs = end.getTime() - start.getTime();
+  const diffDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+  return `${diffDays} jours`;
+}
+
+function sendDebugLog(hypothesisId: string, message: string, data: Record<string, unknown>) {
+  // #region agent log
+  fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'picker-debug-1',hypothesisId,location:'client/src/pages/PlanningPage.tsx',message,data,timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+}
+
 export default function PlanningPage() {
-  const { chantiers } = useChantiers();
+  const { chantiers, updateChantier } = useChantiers();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedChantier, setSelectedChantier] = useState<Chantier | null>(null);
+  const [selectedDayForAssign, setSelectedDayForAssign] = useState<Date | null>(null);
+  const [assignChantierId, setAssignChantierId] = useState('');
+  const [editDateDebut, setEditDateDebut] = useState('');
+  const [editDateFin, setEditDateFin] = useState('');
+  const [editStatut, setEditStatut] = useState<Chantier['statut']>('planifié');
+  const startDateInputRef = useRef<HTMLInputElement | null>(null);
+  const endDateInputRef = useRef<HTMLInputElement | null>(null);
   
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -123,6 +157,51 @@ export default function PlanningPage() {
   
   const goToToday = () => {
     setCurrentDate(new Date());
+  };
+
+  useEffect(() => {
+    if (!selectedChantier) return;
+
+    const startDate = new Date(selectedChantier.dateDebut);
+    const endDate = calculateEndDate(selectedChantier.dateDebut, selectedChantier.duree);
+    setEditDateDebut(formatDateForInput(startDate));
+    setEditDateFin(formatDateForInput(endDate));
+    setEditStatut(selectedChantier.statut);
+  }, [selectedChantier]);
+
+  const handleSaveChantier = () => {
+    if (!selectedChantier || !editDateDebut || !editDateFin) return;
+    if (new Date(editDateFin) < new Date(editDateDebut)) {
+      return;
+    }
+
+    const nextDuree = buildDurationFromDates(editDateDebut, editDateFin);
+    updateChantier(selectedChantier.id, {
+      dateDebut: editDateDebut,
+      duree: nextDuree,
+      statut: editStatut,
+    });
+
+    setSelectedChantier((prev) =>
+      prev
+        ? {
+            ...prev,
+            dateDebut: editDateDebut,
+            duree: nextDuree,
+            statut: editStatut,
+          }
+        : null
+    );
+    setSelectedChantier(null);
+  };
+
+  const handleAssignDayToChantier = () => {
+    if (!selectedDayForAssign || !assignChantierId) return;
+    updateChantier(assignChantierId, {
+      dateDebut: formatDateForInput(selectedDayForAssign),
+    });
+    setSelectedDayForAssign(null);
+    setAssignChantierId('');
   };
   
   return (
@@ -191,13 +270,17 @@ export default function PlanningPage() {
                 return (
                   <div
                     key={index}
+                    onClick={() => {
+                      if (!day.isCurrentMonth) return;
+                      setSelectedDayForAssign(day.date);
+                    }}
                     className={`min-h-[100px] p-2 rounded-lg border ${
                       day.isCurrentMonth
                         ? isToday
                           ? 'bg-white/10 border-white/30 border-2'
                           : 'bg-black/10 border-white/10'
                         : 'bg-black/5 border-white/5 opacity-50'
-                    }`}
+                    } ${day.isCurrentMonth ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''}`}
                   >
                     <div className={`text-sm font-medium mb-1 ${
                       day.isCurrentMonth ? 'text-white' : 'text-white/50'
@@ -216,14 +299,18 @@ export default function PlanningPage() {
                         return (
                           <div
                             key={chantier.id}
-                            className={`text-xs p-1 rounded truncate ${
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedChantier(chantier);
+                            }}
+                            className={`text-xs p-1 rounded truncate cursor-pointer hover:brightness-110 transition ${
                               chantier.statut === 'planifié'
                                 ? 'bg-blue-500/30 text-blue-200 border border-blue-500/50'
                                 : chantier.statut === 'en cours'
                                 ? 'bg-yellow-500/30 text-yellow-200 border border-yellow-500/50'
                                 : 'bg-green-500/30 text-green-200 border border-green-500/50'
                             }`}
-                            title={`${chantier.nom} - ${chantier.clientName}`}
+                            title={`${chantier.nom} - ${chantier.clientName} (cliquer pour voir)`}
                           >
                             {isStart && '▶ '}
                             {isEnd && '◀ '}
@@ -332,6 +419,167 @@ export default function PlanningPage() {
           </Card>
         )}
       </main>
+
+      <Dialog open={!!selectedChantier} onOpenChange={(open) => !open && setSelectedChantier(null)}>
+        <DialogContent className="bg-black/30 backdrop-blur-xl border border-white/10 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white">Détail du chantier</DialogTitle>
+          </DialogHeader>
+          {selectedChantier && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-black/20 border border-white/10">
+                <p className="text-lg font-semibold text-white">{selectedChantier.nom}</p>
+                <p className="text-sm text-white/70">Client : {selectedChantier.clientName}</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  className="p-3 rounded-lg bg-black/20 border border-white/10 cursor-pointer"
+                  onClick={() => {
+                    // #region agent log
+                    sendDebugLog('H1', 'start-date container click', {
+                      hasInput: !!startDateInputRef.current,
+                      activeTag: document.activeElement?.tagName || null
+                    });
+                    // #endregion
+                    const input = startDateInputRef.current;
+                    if (!input) return;
+                    try {
+                      input.showPicker?.();
+                    } catch (error) {
+                      // #region agent log
+                      sendDebugLog('H3', 'start-date showPicker exception in container click', {
+                        errorMessage: error instanceof Error ? error.message : String(error)
+                      });
+                      // #endregion
+                    }
+                    input.focus();
+                  }}
+                >
+                  <p className="text-xs text-white/60 mb-1">Date de début</p>
+                  <Input
+                    ref={startDateInputRef}
+                    type="date"
+                    value={editDateDebut}
+                    onChange={(e) => setEditDateDebut(e.target.value)}
+                    onFocus={(e) => {
+                      // #region agent log
+                      sendDebugLog('H1', 'start-date input focus', {
+                        trustedEvent: e.isTrusted,
+                        activeTag: document.activeElement?.tagName || null
+                      });
+                      // #endregion
+                    }}
+                    className="bg-black/20 border-white/10 text-white"
+                  />
+                </div>
+                <div
+                  className="p-3 rounded-lg bg-black/20 border border-white/10 cursor-pointer"
+                  onClick={() => {
+                    // #region agent log
+                    sendDebugLog('H1', 'end-date container click', {
+                      hasInput: !!endDateInputRef.current,
+                      activeTag: document.activeElement?.tagName || null
+                    });
+                    // #endregion
+                    const input = endDateInputRef.current;
+                    if (!input) return;
+                    try {
+                      input.showPicker?.();
+                    } catch (error) {
+                      // #region agent log
+                      sendDebugLog('H3', 'end-date showPicker exception in container click', {
+                        errorMessage: error instanceof Error ? error.message : String(error)
+                      });
+                      // #endregion
+                    }
+                    input.focus();
+                  }}
+                >
+                  <p className="text-xs text-white/60 mb-1">Date de fin</p>
+                  <Input
+                    ref={endDateInputRef}
+                    type="date"
+                    value={editDateFin}
+                    onChange={(e) => setEditDateFin(e.target.value)}
+                    onFocus={(e) => {
+                      // #region agent log
+                      sendDebugLog('H1', 'end-date input focus', {
+                        trustedEvent: e.isTrusted,
+                        activeTag: document.activeElement?.tagName || null
+                      });
+                      // #endregion
+                    }}
+                    className="bg-black/20 border-white/10 text-white"
+                  />
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-black/20 border border-white/10">
+                <p className="text-xs text-white/60 mb-1">Durée</p>
+                <p className="text-sm font-medium">{buildDurationFromDates(editDateDebut, editDateFin)}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-black/20 border border-white/10">
+                <p className="text-xs text-white/60 mb-1">Statut</p>
+                <select
+                  value={editStatut}
+                  onChange={(e) => setEditStatut(e.target.value as Chantier['statut'])}
+                  className="w-full px-3 py-2 rounded-md border bg-black/20 border-white/10 text-white"
+                >
+                  <option value="planifié">Planifié</option>
+                  <option value="en cours">En cours</option>
+                  <option value="terminé">Terminé</option>
+                </select>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={handleSaveChantier}
+                  disabled={!editDateDebut || !editDateFin || new Date(editDateFin) < new Date(editDateDebut)}
+                  className="bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30"
+                >
+                  Enregistrer les modifications
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedDayForAssign} onOpenChange={(open) => !open && setSelectedDayForAssign(null)}>
+        <DialogContent className="bg-black/30 backdrop-blur-xl border border-white/10 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">Associer un chantier</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-white/70">
+              Jour sélectionné : {selectedDayForAssign ? selectedDayForAssign.toLocaleDateString('fr-FR') : ''}
+            </p>
+            <div>
+              <p className="text-xs text-white/60 mb-1">Choisir un chantier</p>
+              <select
+                value={assignChantierId}
+                onChange={(e) => setAssignChantierId(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border bg-black/20 border-white/10 text-white"
+              >
+                <option value="">Sélectionner un chantier</option>
+                {chantiers.map((chantier) => (
+                  <option key={chantier.id} value={chantier.id}>
+                    {chantier.nom} - {chantier.clientName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={handleAssignDayToChantier}
+                disabled={!assignChantierId || !selectedDayForAssign}
+                className="bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30"
+              >
+                Associer au jour
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

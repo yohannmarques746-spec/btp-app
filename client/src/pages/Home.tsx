@@ -10,7 +10,7 @@ export default function Home() {
 
   return (
     <HeroSection
-      title="PLANCHAIS"
+      title="CALDY"
       highlightText="Construire pour durer"
       description="Votre application professionnelle"
       buttonText="Se connecter"

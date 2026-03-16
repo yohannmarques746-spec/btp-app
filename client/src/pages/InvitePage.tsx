@@ -20,7 +20,7 @@ export default function InvitePage() {
   const [verifying, setVerifying] = useState(false)
   const [, setLocation] = useLocation()
 
-  const colors = ["#72b9bb", "#b5d9d9", "#ffd1bd", "#ffebe0", "#8cc5b8", "#dbf4a4"]
+  const colors = ["#05070f", "#0b1324", "#111827", "#1f2937", "#1e3a8a", "#0f172a"]
 
   useEffect(() => {
     setMounted(true)
@@ -112,7 +112,7 @@ export default function InvitePage() {
           speed={0.42}
           offsetX={0.08}
         />
-        <div className="absolute inset-0 pointer-events-none bg-white/20 dark:bg-black/25" />
+        <div className="absolute inset-0 pointer-events-none bg-black/45 dark:bg-black/60" />
       </div>
 
       <div className="relative z-10 max-w-md mx-auto px-6 w-full">

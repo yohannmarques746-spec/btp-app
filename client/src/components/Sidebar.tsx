@@ -50,7 +50,7 @@ export default function Sidebar() {
       {/* Header */}
       <div className="p-4 border-b border-white/10">
         <div className="flex flex-col">
-          <span className="font-semibold text-white">PLANCHAIS</span>
+          <span className="font-semibold text-white">CALDY</span>
           <span className="text-xs text-white/70 italic">Construire pour durer</span>
         </div>
       </div>

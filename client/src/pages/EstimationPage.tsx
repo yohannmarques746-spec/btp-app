@@ -1,27 +1,25 @@
 import { PageWrapper } from '@/components/PageWrapper';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, Wand2, Plus, Calculator, User, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useChantiers, Client } from '@/context/ChantiersContext';
 
 interface UploadedImage {
   file: File;
   preview: string;
 }
 
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-}
-
 export default function EstimationPage() {
+  const { clients } = useChantiers();
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
   const [newClient, setNewClient] = useState({ name: '', email: '', phone: '' });
   const [chantierInfo, setChantierInfo] = useState({
     surface: '',
@@ -31,6 +29,9 @@ export default function EstimationPage() {
     metier: ''
   });
   const [analysisResults, setAnalysisResults] = useState<any>(null);
+  const filteredClients = clients.filter((client) =>
+    client.name.toLowerCase().includes(clientSearch.toLowerCase())
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -254,6 +255,45 @@ export default function EstimationPage() {
                       </div>
                     ) : (
                       <div className="space-y-4 p-4 bg-black/20 backdrop-blur-md border border-white/10 rounded-lg">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-white block">Choisir un client existant</label>
+                          <Select
+                            value=""
+                            onValueChange={(value) => {
+                              const foundClient = clients.find((client) => client.id === value);
+                              if (foundClient) {
+                                setSelectedClient(foundClient);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="bg-black/20 backdrop-blur-md border-white/10 text-white">
+                              <SelectValue placeholder="Sélectionner un client existant" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-black/20 backdrop-blur-xl border-white/10">
+                              <div className="p-2">
+                                <Input
+                                  value={clientSearch}
+                                  onChange={(e) => setClientSearch(e.target.value)}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                  placeholder="Rechercher un client par nom..."
+                                  className="bg-black/30 border-white/10 text-white placeholder:text-white/50 h-9"
+                                />
+                              </div>
+                              {filteredClients.length > 0 ? (
+                                filteredClients.map((client) => (
+                                  <SelectItem key={client.id} value={client.id} className="text-white">
+                                    {client.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-3 py-2 text-sm text-white/60">Aucun client trouvé</div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <p className="text-xs text-white/60">Ou créez un nouveau client ci-dessous</p>
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
                             <label className="text-sm font-medium text-white block mb-2">Nom</label>

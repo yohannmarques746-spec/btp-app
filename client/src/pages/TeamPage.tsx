@@ -163,7 +163,7 @@ export default function TeamPage() {
                     value={newMember.email}
                     onChange={(e) => setNewMember(prev => ({ ...prev, email: e.target.value }))}
                     className="bg-black/20 border-white/10 text-white"
-                    placeholder="jean.dupont@planchais.fr"
+                    placeholder="jean.dupont@caldy.fr"
                   />
                 </div>
                 <div className="space-y-2">

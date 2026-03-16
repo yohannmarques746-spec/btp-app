@@ -19,7 +19,7 @@ export default function AuthPage() {
   const { signUp, signIn } = useAuth()
   const [, setLocation] = useLocation()
 
-  const colors = ["#72b9bb", "#b5d9d9", "#ffd1bd", "#ffebe0", "#8cc5b8", "#dbf4a4"]
+  const colors = ["#05070f", "#0b1324", "#111827", "#1f2937", "#1e3a8a", "#0f172a"]
 
   useEffect(() => {
     setMounted(true)
@@ -38,6 +38,10 @@ export default function AuthPage() {
     setError(null)
     setLoading(true)
 
+    // #region agent log
+    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:41',message:'Auth form submit',data:{isSignUp,hasEmail:Boolean(email),passwordLength:password?.length||0,hasFullName:Boolean(fullName)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     try {
       if (isSignUp) {
         if (!email || !password || !fullName) {
@@ -47,9 +51,15 @@ export default function AuthPage() {
         }
         const { error } = await signUp(email, password, fullName)
         if (error) {
+          // #region agent log
+          fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:53',message:'Auth signUp returned error',data:{errorMessage:error.message||null},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           setError(error.message || "Erreur lors de la création du compte")
         } else {
           // Rediriger vers la page de login avec code
+          // #region agent log
+          fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:58',message:'Auth signUp success redirecting to /login',data:{redirect:'/login'},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           setLocation("/login")
         }
       } else {
@@ -60,9 +70,15 @@ export default function AuthPage() {
         }
         const { error } = await signIn(email, password)
         if (error) {
+          // #region agent log
+          fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:70',message:'Auth signIn returned error',data:{errorMessage:error.message||null},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           setError(error.message || "Email ou mot de passe incorrect")
         } else {
           // Rediriger vers la page de login avec code
+          // #region agent log
+          fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:75',message:'Auth signIn success redirecting to /login',data:{redirect:'/login'},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           setLocation("/login")
         }
       }
@@ -89,7 +105,7 @@ export default function AuthPage() {
               speed={0.42}
               offsetX={0.08}
             />
-            <div className="absolute inset-0 pointer-events-none bg-white/20 dark:bg-black/25" />
+            <div className="absolute inset-0 pointer-events-none bg-black/45 dark:bg-black/60" />
           </>
         )}
       </div>
@@ -102,8 +118,8 @@ export default function AuthPage() {
             </h1>
             <p className="text-white/80 text-sm">
               {isSignUp 
-                ? "Créez votre compte pour accéder à votre application PLANCHAIS"
-                : "Connectez-vous à votre compte PLANCHAIS"}
+                ? "Créez votre compte pour accéder à votre application CALDY"
+                : "Connectez-vous à votre compte CALDY"}
             </p>
           </div>
 

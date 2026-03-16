@@ -22,6 +22,7 @@ import {
   Settings
 } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
+import { useChantiers } from '@/context/ChantiersContext'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'projects' | 'crm' | 'planning' | 'finance' | 'team'>('overview')
@@ -54,7 +55,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white">
-                Dashboard PLANCHAIS
+                Dashboard CALDY
               </h1>
               <p className="text-sm text-white/70">Construire pour durer</p>
             </div>
@@ -154,51 +155,71 @@ export default function Dashboard() {
 // Overview Tab Component
 function OverviewTab() {
   const [, setLocation] = useLocation();
+  const { chantiers } = useChantiers();
+  const totalChantiers = chantiers.length;
+  const chantiersActifs = chantiers.filter((c) => c.statut !== 'terminé').length;
+  const chantiersEnCours = chantiers.filter((c) => c.statut === 'en cours').length;
+  const devisEnAttente = chantiers.filter((c) => c.statut === 'planifié').length;
+  const chantiersTermines = chantiers.filter((c) => c.statut === 'terminé').length;
+  const tauxConversion = totalChantiers > 0 ? Math.round((chantiersTermines / totalChantiers) * 100) : 0;
+  const chiffreAffairesEstime = chantiersTermines * 12500;
   
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
+        <Card
+          className="bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors"
+          onClick={() => setLocation('/dashboard')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Chiffre d'Affaires</CardTitle>
               <Euro className="h-4 w-4 text-white/70" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">€165,000</div>
-              <p className="text-xs text-white/70">+18.2% ce mois</p>
+            <div className="text-2xl font-bold">€{chiffreAffairesEstime.toLocaleString('fr-FR')}</div>
+              <p className="text-xs text-white/70">{chantiersTermines} chantier(s) terminé(s)</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
+        <Card
+          className="bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors"
+          onClick={() => setLocation('/dashboard/projects')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Chantiers Actifs</CardTitle>
             <Building className="h-4 w-4 text-white/70" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-white/70">+3 en cours</p>
+            <div className="text-2xl font-bold">{chantiersActifs}</div>
+            <p className="text-xs text-white/70">{chantiersEnCours} en cours</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
+        <Card
+          className="bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors"
+          onClick={() => setLocation('/dashboard/quotes')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Devis En Attente</CardTitle>
             <FileText className="h-4 w-4 text-white/70" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
+            <div className="text-2xl font-bold">{devisEnAttente}</div>
             <p className="text-xs text-white/70">Réponses attendues</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
+        <Card
+          className="bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors"
+          onClick={() => setLocation('/dashboard/projects')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Taux de Conversion</CardTitle>
             <TrendingUp className="h-4 w-4 text-white/70" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">73%</div>
-            <p className="text-xs text-white/70">+5.2% devis → chantiers</p>
+            <div className="text-2xl font-bold">{tauxConversion}%</div>
+            <p className="text-xs text-white/70">{chantiersTermines} terminé(s) sur {totalChantiers}</p>
           </CardContent>
         </Card>
       </div>
@@ -228,7 +249,11 @@ function OverviewTab() {
               <Plus className="h-4 w-4 mr-2" />
               Nouveau Chantier
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={() => setLocation('/dashboard/quotes')}
+            >
               <FileText className="h-4 w-4 mr-2" />
               Créer un Devis
             </Button>
