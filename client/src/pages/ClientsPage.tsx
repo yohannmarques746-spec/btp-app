@@ -8,21 +8,24 @@ import { User, Plus, Building, Mail, Phone, Image as ImageIcon, Pencil, FileText
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useChantiers, Client, Chantier } from '@/context/ChantiersContext';
-import { loadDevisList } from '@/utils/devisStorage';
 import { formatCHF } from '@/utils/chf';
 import type { Devis } from '@/types/devis';
+import { useDevis } from '@/hooks/useDevis';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ClientsPage() {
+  const { toast } = useToast();
   const { clients, chantiers, addClient, updateClient, updateChantier } = useChantiers();
+  const { devisList } = useDevis();
   const [location] = useLocation();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [devisList, setDevisList] = useState<Devis[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isClientEditDialogOpen, setIsClientEditDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isChantierEditDialogOpen, setIsChantierEditDialogOpen] = useState(false);
   const [editingChantier, setEditingChantier] = useState<Chantier | null>(null);
   const [newClient, setNewClient] = useState({ name: '', email: '', phone: '' });
+  const [isSavingClient, setIsSavingClient] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -32,10 +35,6 @@ export default function ClientsPage() {
       window.history.replaceState({}, '', '/dashboard/clients');
     }
   }, [location]);
-
-  useEffect(() => {
-    setDevisList(loadDevisList());
-  }, []);
 
   // Filtrer les chantiers du client sélectionné
   const clientChantiers = selectedClient
@@ -66,17 +65,25 @@ export default function ClientsPage() {
     return 'bg-gray-500/20 text-gray-300';
   };
 
-  const handleAddClient = () => {
+  const handleAddClient = async () => {
     if (!newClient.name || !newClient.email || !newClient.phone) return;
+    setIsSavingClient(true);
 
     const client: Client = {
       id: Date.now().toString(),
       ...newClient
     };
 
-    addClient(client);
+    const { error } = await addClient(client);
+    setIsSavingClient(false);
+    if (error) {
+      console.error('ClientsPage.handleAddClient', error);
+      toast({ title: "Erreur lors de l'enregistrement", description: error.message });
+      return;
+    }
     setNewClient({ name: '', email: '', phone: '' });
     setIsDialogOpen(false);
+    toast({ title: 'Enregistré avec succès' });
   };
 
   const handleOpenEditClient = () => {
@@ -85,15 +92,23 @@ export default function ClientsPage() {
     setIsClientEditDialogOpen(true);
   };
 
-  const handleSaveClient = () => {
+  const handleSaveClient = async () => {
     if (!editingClient) return;
-    updateClient(editingClient.id, {
+    setIsSavingClient(true);
+    const { error } = await updateClient(editingClient.id, {
       name: editingClient.name,
       email: editingClient.email,
       phone: editingClient.phone,
     });
+    setIsSavingClient(false);
+    if (error) {
+      console.error('ClientsPage.handleSaveClient', error);
+      toast({ title: "Erreur lors de l'enregistrement", description: error.message });
+      return;
+    }
     setSelectedClient(editingClient);
     setIsClientEditDialogOpen(false);
+    toast({ title: 'Enregistré avec succès' });
   };
 
   const handleOpenEditChantier = (chantier: Chantier) => {
@@ -101,15 +116,21 @@ export default function ClientsPage() {
     setIsChantierEditDialogOpen(true);
   };
 
-  const handleSaveChantier = () => {
+  const handleSaveChantier = async () => {
     if (!editingChantier) return;
-    updateChantier(editingChantier.id, {
+    const { error } = await updateChantier(editingChantier.id, {
       nom: editingChantier.nom,
       dateDebut: editingChantier.dateDebut,
       duree: editingChantier.duree,
       statut: editingChantier.statut,
     });
+    if (error) {
+      console.error('ClientsPage.handleSaveChantier', error);
+      toast({ title: "Erreur lors de l'enregistrement", description: error.message });
+      return;
+    }
     setIsChantierEditDialogOpen(false);
+    toast({ title: 'Enregistré avec succès' });
   };
 
   return (
@@ -176,9 +197,10 @@ export default function ClientsPage() {
                     </Button>
                     <Button
                       onClick={handleAddClient}
+                      disabled={isSavingClient}
                       className="bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30"
                     >
-                      Ajouter
+                      {isSavingClient ? 'Enregistrement...' : 'Ajouter'}
                     </Button>
                   </div>
                 </div>
@@ -401,8 +423,8 @@ export default function ClientsPage() {
                 />
               </div>
               <div className="flex justify-end">
-                <Button onClick={handleSaveClient} className="bg-white/20 border border-white/10 hover:bg-white/30">
-                  Enregistrer
+                <Button onClick={handleSaveClient} disabled={isSavingClient} className="bg-white/20 border border-white/10 hover:bg-white/30">
+                  {isSavingClient ? 'Enregistrement...' : 'Enregistrer'}
                 </Button>
               </div>
             </div>

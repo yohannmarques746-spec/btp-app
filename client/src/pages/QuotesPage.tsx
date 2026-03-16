@@ -11,9 +11,10 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useDevis } from "@/hooks/useDevis";
+import { EMPTY_PROFIL_ENTREPRISE, useProfilEntreprise } from "@/hooks/useProfilEntreprise";
 import { calculateDateExpiration, calculateLigneTotalHT, calculateTotaux, computeDevisStatus } from "@/utils/devisCalculs";
 import { formatCHF, sanitizeFileNamePart } from "@/utils/chf";
-import { DEFAULT_EMETTEUR, getNextNumeroDevis, loadDevisList, loadProfilEmetteur, saveDevisList, saveProfilEmetteur } from "@/utils/devisStorage";
 import { IDE_REGEX, validateDevis } from "@/utils/devisValidation";
 import type { Devis, Emetteur, LignePrestation, StatutDevis, TauxTVA, UnitePrestation } from "@/types/devis";
 import { DEVIS_STATUS_OPTIONS, TVA_OPTIONS, UNITE_OPTIONS } from "@/types/devis";
@@ -89,11 +90,11 @@ function createLigne(): LignePrestation {
   };
 }
 
-function createDefaults(profile: Emetteur): DevisFormValues {
+function createDefaults(profile: Emetteur, numero = `DEV-${new Date().getFullYear()}-0001`): DevisFormValues {
   const dateEmission = todayISO();
   const dureeValidite = 30;
   return {
-    numero: getNextNumeroDevis(),
+    numero,
     dateEmission,
     dureeValidite,
     dateExpiration: calculateDateExpiration(dateEmission, dureeValidite),
@@ -129,14 +130,16 @@ function statusClasses(status: StatutDevis): string {
 export default function QuotesPage() {
   const { toast } = useToast();
   const { clients, addClient } = useChantiers();
+  const { devisList, saveDevis, deleteDevis: removeDevis, getNextNumeroDevis } = useDevis();
+  const { profile, saveProfile: saveProfileToDb } = useProfilEntreprise();
   const [activeView, setActiveView] = useState<ModuleView>("dashboard");
-  const [devisList, setDevisList] = useState<Devis[]>([]);
   const [editingDevisId, setEditingDevisId] = useState<string | null>(null);
-  const [profile, setProfile] = useState<Emetteur>(DEFAULT_EMETTEUR);
   const [clientSearch, setClientSearch] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingDevis, setIsSavingDevis] = useState(false);
 
-  const profileForm = useForm<Emetteur>({ defaultValues: DEFAULT_EMETTEUR });
-  const devisForm = useForm<DevisFormValues>({ defaultValues: createDefaults(DEFAULT_EMETTEUR), mode: "onChange" });
+  const profileForm = useForm<Emetteur>({ defaultValues: EMPTY_PROFIL_ENTREPRISE });
+  const devisForm = useForm<DevisFormValues>({ defaultValues: createDefaults(EMPTY_PROFIL_ENTREPRISE), mode: "onChange" });
   const { fields, append, remove } = useFieldArray({ control: devisForm.control, name: "lignes" });
 
   const watched = devisForm.watch();
@@ -178,13 +181,12 @@ export default function QuotesPage() {
   }, []);
 
   useEffect(() => {
-    const loadedProfile = loadProfilEmetteur();
-    const loadedDevis = loadDevisList();
-    setProfile(loadedProfile);
-    setDevisList(loadedDevis);
-    profileForm.reset(loadedProfile);
-    devisForm.reset(createDefaults(loadedProfile));
-  }, [devisForm, profileForm]);
+    profileForm.reset(profile);
+    void (async () => {
+      const numero = await getNextNumeroDevis();
+      devisForm.reset(createDefaults(profile, numero));
+    })();
+  }, [devisForm, getNextNumeroDevis, profile, profileForm]);
 
   useEffect(() => {
     const dateEmission = devisForm.getValues("dateEmission");
@@ -223,7 +225,7 @@ export default function QuotesPage() {
       dureeValidite: Number(watched.dureeValidite || 30),
       dateExpiration: watched.dateExpiration || todayISO(),
       objet: watched.objet || "",
-      emetteur: watched.emetteur || DEFAULT_EMETTEUR,
+      emetteur: watched.emetteur || EMPTY_PROFIL_ENTREPRISE,
       client: watched.client || { nom: "", adresse: "", npa: "", ville: "" },
       lignes: watched.lignes || [],
       sousTotalHT: totals.sousTotalHT,
@@ -240,14 +242,15 @@ export default function QuotesPage() {
     };
   }, [editingDevisId, watched, totals]);
 
-  const startNewDevis = () => {
-    const defaults = createDefaults(profile);
+  const startNewDevis = async () => {
+    const numero = await getNextNumeroDevis();
+    const defaults = createDefaults(profile, numero);
     devisForm.reset(defaults);
     setEditingDevisId(null);
     setActiveView("new");
   };
 
-  const saveDevisFromForm = () => {
+  const saveDevisFromForm = async () => {
     const errors = validateDevis(currentPreviewDevis);
     if (!IDE_REGEX.test(currentPreviewDevis.emetteur.ide)) {
       errors.push("Numero IDE invalide (format CHE-XXX.XXX.XXX)");
@@ -257,6 +260,7 @@ export default function QuotesPage() {
       return;
     }
 
+    setIsSavingDevis(true);
     const now = new Date().toISOString();
     const existing = editingDevisId ? devisList.find((d) => d.id === editingDevisId) : undefined;
     const payload: Devis = {
@@ -266,14 +270,14 @@ export default function QuotesPage() {
       updatedAt: now,
       statut: computeDevisStatus(currentPreviewDevis),
     };
-
-    const nextList = editingDevisId
-      ? devisList.map((d) => (d.id === editingDevisId ? payload : d))
-      : [payload, ...devisList];
-
-    saveDevisList(nextList);
-    setDevisList(nextList);
-    setEditingDevisId(payload.id);
+    const { data, error } = await saveDevis(payload, editingDevisId ?? undefined);
+    if (error) {
+      setIsSavingDevis(false);
+      toast({ title: "Erreur lors de l'enregistrement", description: error.message });
+      return;
+    }
+    setEditingDevisId(data?.id ?? payload.id);
+    setIsSavingDevis(false);
     toast({ title: "Devis enregistre", description: `${payload.numero} sauvegarde dans le dashboard.` });
     setActiveView("dashboard");
   };
@@ -299,26 +303,23 @@ export default function QuotesPage() {
     setActiveView("new");
   };
 
-  const duplicateDevis = (devis: Devis) => {
+  const duplicateDevis = async (devis: Devis) => {
+    const numero = await getNextNumeroDevis();
     const copy: Devis = {
       ...devis,
       id: generateSafeId("devis_copy"),
-      numero: getNextNumeroDevis(),
+      numero,
       statut: "brouillon",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    const nextList = [copy, ...devisList];
-    saveDevisList(nextList);
-    setDevisList(nextList);
+    await saveDevis(copy);
     toast({ title: "Devis duplique", description: `${copy.numero} cree.` });
   };
 
-  const deleteDevis = (id: string) => {
+  const deleteDevis = async (id: string) => {
     if (!window.confirm("Supprimer ce devis ?")) return;
-    const nextList = devisList.filter((d) => d.id !== id);
-    saveDevisList(nextList);
-    setDevisList(nextList);
+    await removeDevis(id);
     toast({ title: "Devis supprime" });
   };
 
@@ -341,13 +342,19 @@ export default function QuotesPage() {
     toast({ title: "PDF telecharge", description: "Le devis a ete telecharge en PDF." });
   };
 
-  const saveProfile = (values: Emetteur) => {
+  const saveProfile = async (values: Emetteur) => {
     if (!IDE_REGEX.test(values.ide)) {
       toast({ title: "Numero IDE invalide", description: "Format attendu: CHE-123.456.789" });
       return;
     }
-    saveProfilEmetteur(values);
-    setProfile(values);
+    setIsSavingProfile(true);
+    const { error } = await saveProfileToDb(values);
+    if (error) {
+      setIsSavingProfile(false);
+      toast({ title: "Erreur lors de l'enregistrement", description: error.message });
+      return;
+    }
+    setIsSavingProfile(false);
     if (!editingDevisId) {
       devisForm.setValue("emetteur", values);
     }
@@ -481,7 +488,7 @@ export default function QuotesPage() {
                   <Label>Non assujetti a la TVA</Label>
                 </div>
                 <div className="md:col-span-2">
-                  <Button type="submit"><Save className="mr-2 h-4 w-4" /> Enregistrer le profil</Button>
+                  <Button type="submit" disabled={isSavingProfile}><Save className="mr-2 h-4 w-4" /> {isSavingProfile ? "Enregistrement..." : "Enregistrer le profil"}</Button>
                 </div>
               </form>
             </CardContent>
@@ -635,7 +642,7 @@ export default function QuotesPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Button type="submit"><Save className="mr-2 h-4 w-4" /> Enregistrer</Button>
+                    <Button type="submit" disabled={isSavingDevis}><Save className="mr-2 h-4 w-4" /> {isSavingDevis ? "Enregistrement..." : "Enregistrer"}</Button>
                     <Button type="button" variant="outline" onClick={() => openPdfPreview(currentPreviewDevis)}><Eye className="mr-2 h-4 w-4" /> Apercu PDF</Button>
                     <PDFDownloadLink
                       document={<DevisPdfDocument devis={currentPreviewDevis} />}

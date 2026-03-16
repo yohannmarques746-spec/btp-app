@@ -9,8 +9,10 @@ import { Building, Plus, Calendar, Clock, User, Image as ImageIcon, X } from 'lu
 import { useState, useCallback, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useChantiers, Chantier } from '@/context/ChantiersContext';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProjectsPage() {
+  const { toast } = useToast();
   const { chantiers, clients, addChantier } = useChantiers();
   const [location, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -23,6 +25,7 @@ export default function ProjectsPage() {
     images: [] as string[]
   });
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
   const filteredClients = clients.filter((client) =>
     client.name.toLowerCase().includes(clientSearch.toLowerCase())
   );
@@ -55,10 +58,11 @@ export default function ProjectsPage() {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddChantier = () => {
+  const handleAddChantier = async () => {
     if (!newChantier.nom || !newChantier.clientId || !newChantier.dateDebut || !newChantier.duree) {
       return;
     }
+    setIsSaving(true);
 
     const client = clients.find(c => c.id === newChantier.clientId);
     const chantier: Chantier = {
@@ -72,10 +76,17 @@ export default function ProjectsPage() {
       statut: 'planifié'
     };
 
-    addChantier(chantier);
+    const { error } = await addChantier(chantier);
+    setIsSaving(false);
+    if (error) {
+      console.error('ProjectsPage.handleAddChantier', error);
+      toast({ title: "Erreur lors de l'enregistrement", description: error.message });
+      return;
+    }
     setNewChantier({ nom: '', clientId: '', dateDebut: '', duree: '', images: [] });
     setUploadedImages([]);
     setIsDialogOpen(false);
+    toast({ title: 'Enregistré avec succès' });
   };
 
   const handleGoToCreateClient = () => {
@@ -245,10 +256,10 @@ export default function ProjectsPage() {
                     </Button>
                     <Button
                       onClick={handleAddChantier}
-                      disabled={!newChantier.nom || !newChantier.clientId || !newChantier.dateDebut || !newChantier.duree}
+                      disabled={isSaving || !newChantier.nom || !newChantier.clientId || !newChantier.dateDebut || !newChantier.duree}
                       className="bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30 disabled:opacity-50"
                     >
-                      Ajouter
+                      {isSaving ? 'Enregistrement...' : 'Ajouter'}
                     </Button>
                   </div>
                 </div>

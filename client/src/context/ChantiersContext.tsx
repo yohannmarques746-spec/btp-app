@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
+import { useClients } from '@/hooks/useClients';
+import { useChantiers as useSupabaseChantiers } from '@/hooks/useChantiers';
 
 export interface Client {
   id: string;
@@ -21,48 +23,68 @@ export interface Chantier {
 interface ChantiersContextType {
   clients: Client[];
   chantiers: Chantier[];
-  addClient: (client: Client) => void;
-  updateClient: (id: string, updates: Partial<Client>) => void;
-  addChantier: (chantier: Chantier) => void;
-  updateChantier: (id: string, updates: Partial<Chantier>) => void;
+  loading: boolean;
+  addClient: (client: Client) => Promise<{ error: Error | null }>;
+  updateClient: (id: string, updates: Partial<Client>) => Promise<{ error: Error | null }>;
+  addChantier: (chantier: Chantier) => Promise<{ error: Error | null }>;
+  updateChantier: (id: string, updates: Partial<Chantier>) => Promise<{ error: Error | null }>;
 }
 
 const ChantiersContext = createContext<ChantiersContextType | undefined>(undefined);
 
 export function ChantiersProvider({ children }: { children: ReactNode }) {
-  const [clients, setClients] = useState<Client[]>([
-    { id: '1', name: 'Jean Dupont', email: 'jean.dupont@email.com', phone: '06 12 34 56 78' },
-    { id: '2', name: 'Marie Martin', email: 'marie.martin@email.com', phone: '06 98 76 54 32' }
-  ]);
-  const [chantiers, setChantiers] = useState<Chantier[]>([]);
+  const clientsHook = useClients();
+  const chantiersHook = useSupabaseChantiers();
 
-  const addClient = (client: Client) => {
-    setClients(prev => [...prev, client]);
+  const addClient = async (client: Client) => {
+    const { error } = await clientsHook.saveClient({
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+    });
+    return { error: error as Error | null };
   };
 
-  const updateClient = (id: string, updates: Partial<Client>) => {
-    setClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
-
-    // Garder le nom du client synchronisé dans les cartes chantier
-    if (updates.name) {
-      setChantiers(prev => prev.map(chantier =>
-        chantier.clientId === id
-          ? { ...chantier, clientName: updates.name as string }
-          : chantier
-      ));
-    }
+  const updateClient = async (id: string, updates: Partial<Client>) => {
+    const current = clientsHook.clients.find((c) => c.id === id);
+    if (!current) return { error: new Error("Client introuvable") };
+    const { error } = await clientsHook.saveClient({
+      name: updates.name ?? current.name,
+      email: updates.email ?? current.email,
+      phone: updates.phone ?? current.phone,
+    }, id);
+    return { error: error as Error | null };
   };
 
-  const addChantier = (chantier: Chantier) => {
-    setChantiers(prev => [...prev, chantier]);
+  const addChantier = async (chantier: Chantier) => {
+    const { error } = await chantiersHook.saveChantier({
+      nom: chantier.nom,
+      clientId: chantier.clientId,
+      dateDebut: chantier.dateDebut,
+      duree: chantier.duree,
+      images: chantier.images,
+      statut: chantier.statut,
+    });
+    return { error: error as Error | null };
   };
 
-  const updateChantier = (id: string, updates: Partial<Chantier>) => {
-    setChantiers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  const updateChantier = async (id: string, updates: Partial<Chantier>) => {
+    const { error } = await chantiersHook.updateChantier(id, updates);
+    return { error: error as Error | null };
   };
 
   return (
-    <ChantiersContext.Provider value={{ clients, chantiers, addClient, updateClient, addChantier, updateChantier }}>
+    <ChantiersContext.Provider
+      value={{
+        clients: clientsHook.clients,
+        chantiers: chantiersHook.chantiers,
+        loading: clientsHook.loading || chantiersHook.loading,
+        addClient,
+        updateClient,
+        addChantier,
+        updateChantier,
+      }}
+    >
       {children}
     </ChantiersContext.Provider>
   );

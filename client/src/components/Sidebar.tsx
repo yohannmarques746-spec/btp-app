@@ -16,7 +16,8 @@ import {
   Building,
   Calculator,
   Workflow,
-  UserCircle
+  UserCircle,
+  Euro
 } from 'lucide-react';
 import AccountDialog from './AccountDialog';
 
@@ -31,6 +32,7 @@ export default function Sidebar() {
     { icon: Calendar, label: 'Planning', path: '/dashboard/planning', active: location === '/dashboard/planning' },
     { icon: Workflow, label: 'CRM Pipeline', path: '/dashboard/crm', active: location === '/dashboard/crm' },
     { icon: FileText, label: 'Générateur de Devis', path: '/dashboard/quotes', active: location === '/dashboard/quotes' },
+    { icon: Euro, label: 'Factures', path: '/dashboard/payments', active: location === '/dashboard/payments' },
     { icon: Wand2, label: 'Visualisation IA', path: '/dashboard/ai-visualization', active: location === '/dashboard/ai-visualization' },
     { icon: Users, label: 'Équipe', path: '/dashboard/team', active: location === '/dashboard/team' },
     { icon: User, label: 'Clients', path: '/dashboard/clients', active: location === '/dashboard/clients' },
