@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentUserId } from "@/lib/supabase";
 
 export interface ClientRecord {
   id: string;
@@ -92,7 +92,7 @@ export function useClients() {
 
   const saveClient = useCallback(async (data: ClientFormData, id?: string) => {
     setError(null);
-    const payload = {
+    const payload: Record<string, unknown> = {
       nom: data.name.trim(),
       prenom: data.prenom?.trim() || null,
       email: data.email?.trim() || null,
@@ -103,6 +103,16 @@ export function useClients() {
       pays: data.pays?.trim() || "Suisse",
       notes: data.notes?.trim() || null,
     };
+
+    if (!id) {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        const msg = "Session non valide : reconnectez-vous pour enregistrer le client.";
+        setError(msg);
+        return { data: null, error: new Error(msg) };
+      }
+      payload.user_id = userId;
+    }
 
     const result = id
       ? await supabase.from("clients").update(payload).eq("id", id).select("id, nom, prenom, email, telephone, adresse, npa, localite, pays, notes").single()

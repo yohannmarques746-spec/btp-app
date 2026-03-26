@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentUserId } from "@/lib/supabase";
 
 export type FactureStatus = "non_payee" | "payee" | "en_retard";
 
@@ -76,7 +76,7 @@ export function useFactures() {
 
   const saveFacture = useCallback(async (facture: Omit<FactureRecord, "id">, id?: string) => {
     setError(null);
-    const payload = {
+    const payload: Record<string, unknown> = {
       numero: facture.numero,
       devis_id: facture.devisId ?? null,
       client_id: facture.clientId ?? null,
@@ -91,6 +91,16 @@ export function useFactures() {
       notes: facture.notes ?? null,
       updated_at: new Date().toISOString(),
     };
+
+    if (!id) {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        const msg = "Session non valide : reconnectez-vous pour enregistrer la facture.";
+        setError(msg);
+        return { error: new Error(msg) };
+      }
+      payload.user_id = userId;
+    }
 
     const result = id
       ? await supabase.from("factures").update(payload).eq("id", id)

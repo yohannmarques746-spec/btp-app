@@ -10,12 +10,14 @@ import { useState, useCallback, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useChantiers, Chantier } from '@/context/ChantiersContext';
 import { useToast } from '@/hooks/use-toast';
+import { FicheChantier } from '@/components/chantier/FicheChantier';
 
 export default function ProjectsPage() {
   const { toast } = useToast();
   const { chantiers, clients, addChantier } = useChantiers();
   const [location, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedChantierId, setSelectedChantierId] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState('');
   const [newChantier, setNewChantier] = useState({
     nom: '',
@@ -270,7 +272,9 @@ export default function ProjectsPage() {
       </header>
 
       <main className="flex-1 p-6">
-        {chantiers.length === 0 ? (
+        {selectedChantierId ? (
+          <FicheChantier id={selectedChantierId} onBack={() => setSelectedChantierId(null)} />
+        ) : chantiers.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <Card className="w-full max-w-md text-center bg-black/20 backdrop-blur-xl border border-white/10 text-white">
               <CardHeader className="pb-4">
@@ -299,6 +303,7 @@ export default function ProjectsPage() {
               <Card
                 key={chantier.id}
                 className="bg-black/20 backdrop-blur-xl border border-white/10 text-white hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => setSelectedChantierId(chantier.id)}
               >
                 {chantier.images.length > 0 && (
                   <div className="relative h-48 overflow-hidden rounded-t-lg">

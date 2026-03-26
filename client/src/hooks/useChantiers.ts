@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentUserId } from "@/lib/supabase";
 
 export interface ChantierRecord {
   id: string;
@@ -98,7 +98,7 @@ export function useChantiers() {
 
   const saveChantier = useCallback(async (data: ChantierFormData, id?: string) => {
     setError(null);
-    const payload = {
+    const payload: Record<string, unknown> = {
       nom: data.nom,
       client_id: data.clientId || null,
       date_debut: data.dateDebut || null,
@@ -106,6 +106,16 @@ export function useChantiers() {
       images: data.images ?? [],
       statut: DB_STATUS_FROM_UI[data.statut ?? "planifié"],
     };
+
+    if (!id) {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        const msg = "Session non valide : reconnectez-vous pour enregistrer le chantier.";
+        setError(msg);
+        return { error: new Error(msg) };
+      }
+      payload.user_id = userId;
+    }
 
     const result = id
       ? await supabase.from("chantiers").update(payload).eq("id", id)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentUserId } from "@/lib/supabase";
 import type { Devis, Emetteur, LignePrestation } from "@/types/devis";
 import { computeDevisStatus } from "@/utils/devisCalculs";
 
@@ -104,7 +104,7 @@ export function useDevis() {
 
   const saveDevis = useCallback(async (devis: Devis, id?: string) => {
     setError(null);
-    const payload = {
+    const payload: Record<string, unknown> = {
       numero: devis.numero,
       date_emission: devis.dateEmission,
       date_validite: devis.dateExpiration,
@@ -124,6 +124,16 @@ export function useDevis() {
       client: devis.client,
       updated_at: new Date().toISOString(),
     };
+
+    if (!id) {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        const msg = "Session non valide : reconnectez-vous pour enregistrer le devis.";
+        setError(msg);
+        return { data: null, error: new Error(msg) };
+      }
+      payload.user_id = userId;
+    }
 
     const result = id
       ? await supabase.from("devis").update(payload).eq("id", id).select("*").single()

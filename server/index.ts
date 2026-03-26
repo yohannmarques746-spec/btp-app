@@ -88,48 +88,10 @@ app.use((req, res, next) => {
       log(`server listen error: ${err?.code || err?.message}`, "server");
     }
 
-    // #region agent log
-    fetch("http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "07ec15",
-      },
-      body: JSON.stringify({
-        sessionId: "07ec15",
-        runId: "pre-fix",
-        hypothesisId: "H1",
-        location: "server/index.ts:84",
-        message: "server error event",
-        data: { code: err?.code, message: err?.message },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-
     process.exit(1);
   });
 
   server.listen(listenOptions, () => {
     log(`serving on http://${host}:${finalPort}`);
-
-    // #region agent log
-    fetch("http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "07ec15",
-      },
-      body: JSON.stringify({
-        sessionId: "07ec15",
-        runId: "pre-fix",
-        hypothesisId: "H1",
-        location: "server/index.ts:93",
-        message: "server listen started",
-        data: { port: finalPort, host },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
   });
 })();

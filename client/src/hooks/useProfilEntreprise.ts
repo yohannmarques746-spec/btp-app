@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, getCurrentUserId } from "@/lib/supabase";
 import type { Emetteur } from "@/types/devis";
 
 export const EMPTY_PROFIL_ENTREPRISE: Emetteur = {
@@ -50,10 +50,18 @@ export function useProfilEntreprise() {
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      setProfileId(null);
+      setProfile({ ...EMPTY_PROFIL_ENTREPRISE });
+      setLoading(false);
+      return;
+    }
+
     const { data, error: fetchError } = await supabase
       .from("profil_entreprise")
       .select("id, nom, adresse, npa, localite, numero_ide, email, telephone, iban, logo_url")
-      .limit(1)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (fetchError) {
@@ -74,8 +82,16 @@ export function useProfilEntreprise() {
 
   const saveProfile = useCallback(async (values: Emetteur) => {
     setError(null);
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      const msg = "Session non valide : reconnectez-vous pour enregistrer le profil.";
+      setError(msg);
+      return { error: new Error(msg) };
+    }
+
     const payload = {
-      id: profileId ?? undefined,
+      ...(profileId ? { id: profileId } : {}),
+      user_id: userId,
       nom: values.nom || null,
       adresse: values.adresse || null,
       npa: values.npa || null,

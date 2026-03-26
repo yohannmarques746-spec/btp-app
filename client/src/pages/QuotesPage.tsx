@@ -54,29 +54,11 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function sendDebugLog(hypothesisId: string, message: string, data: Record<string, unknown>) {
-  // #region agent log
-  fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'quotes-randomuuid-debug-1',hypothesisId,location:'client/src/pages/QuotesPage.tsx:createLigne',message,data,timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-}
-
 function generateSafeId(context: string): string {
-  const fallbackId = `${context}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  // #region agent log
-  sendDebugLog("H4", "safe id generated without crypto", { context, idPreview: fallbackId.slice(0, 16) });
-  // #endregion
-  return fallbackId;
+  return `${context}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function createLigne(): LignePrestation {
-  // #region agent log
-  sendDebugLog("H1", "createLigne runtime capabilities", {
-    hasCrypto: typeof crypto !== "undefined",
-    randomUUIDType: typeof crypto !== "undefined" ? typeof (crypto as { randomUUID?: unknown }).randomUUID : "no-crypto",
-    isSecureContext: typeof window !== "undefined" ? window.isSecureContext : null,
-  });
-  // #endregion
-
   const generatedId = generateSafeId("ligne");
 
   return {
@@ -143,42 +125,6 @@ export default function QuotesPage() {
   const { fields, append, remove } = useFieldArray({ control: devisForm.control, name: "lignes" });
 
   const watched = devisForm.watch();
-
-  useEffect(() => {
-    // #region agent log
-    sendDebugLog("H6", "quotes page mounted", {
-      href: typeof window !== "undefined" ? window.location.href : null,
-      hasCrypto: typeof crypto !== "undefined",
-      randomUUIDType: typeof crypto !== "undefined" ? typeof (crypto as { randomUUID?: unknown }).randomUUID : "no-crypto",
-    });
-    // #endregion
-
-    const onError = (event: ErrorEvent) => {
-      // #region agent log
-      sendDebugLog("H7", "window error event", {
-        message: event.message,
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno,
-      });
-      // #endregion
-    };
-
-    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      // #region agent log
-      sendDebugLog("H8", "unhandled rejection", {
-        reason: String(event.reason),
-      });
-      // #endregion
-    };
-
-    window.addEventListener("error", onError);
-    window.addEventListener("unhandledrejection", onUnhandledRejection);
-    return () => {
-      window.removeEventListener("error", onError);
-      window.removeEventListener("unhandledrejection", onUnhandledRejection);
-    };
-  }, []);
 
   useEffect(() => {
     profileForm.reset(profile);

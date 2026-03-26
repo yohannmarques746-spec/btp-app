@@ -16,7 +16,7 @@ export default function AuthPage() {
   const [fullName, setFullName] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { signUp, signIn } = useAuth()
+  const { signUp, signIn, user } = useAuth()
   const [, setLocation] = useLocation()
 
   const colors = ["#05070f", "#0b1324", "#111827", "#1f2937", "#1e3a8a", "#0f172a"]
@@ -38,10 +38,6 @@ export default function AuthPage() {
     setError(null)
     setLoading(true)
 
-    // #region agent log
-    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:41',message:'Auth form submit',data:{isSignUp,hasEmail:Boolean(email),passwordLength:password?.length||0,hasFullName:Boolean(fullName)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     try {
       if (isSignUp) {
         if (!email || !password || !fullName) {
@@ -51,15 +47,9 @@ export default function AuthPage() {
         }
         const { error } = await signUp(email, password, fullName)
         if (error) {
-          // #region agent log
-          fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:53',message:'Auth signUp returned error',data:{errorMessage:error.message||null},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           setError(error.message || "Erreur lors de la création du compte")
         } else {
           // Rediriger vers la page de login avec code
-          // #region agent log
-          fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:58',message:'Auth signUp success redirecting to /login',data:{redirect:'/login'},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           setLocation("/login")
         }
       } else {
@@ -70,15 +60,9 @@ export default function AuthPage() {
         }
         const { error } = await signIn(email, password)
         if (error) {
-          // #region agent log
-          fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:70',message:'Auth signIn returned error',data:{errorMessage:error.message||null},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           setError(error.message || "Email ou mot de passe incorrect")
         } else {
           // Rediriger vers la page de login avec code
-          // #region agent log
-          fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'supabase-auth-debug-1',hypothesisId:'H5',location:'client/src/pages/AuthPage.tsx:75',message:'Auth signIn success redirecting to /login',data:{redirect:'/login'},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           setLocation("/login")
         }
       }
@@ -219,14 +203,23 @@ export default function AuthPage() {
             >
               {loading ? "Chargement..." : isSignUp ? "Créer mon compte" : "Se connecter"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full bg-white/10 border-white/40 text-white hover:bg-white/20 transition-colors h-10 text-sm font-medium"
-              onClick={() => setLocation("/dashboard")}
-            >
-              Accéder directement au dashboard
-            </Button>
+
+            <p className="text-center text-white/55 text-xs leading-relaxed px-1">
+              Le dashboard n’est pas accessible sans compte : après connexion, la page suivante vous demande le{' '}
+              <span className="text-white/80">code admin</span> ou <span className="text-white/80">d’équipe</span>{' '}
+              pour entrer dans l’application.
+            </p>
+
+            {user ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full bg-white/10 border-white/40 text-white hover:bg-white/20 transition-colors h-10 text-sm font-medium"
+                onClick={() => setLocation("/login")}
+              >
+                Continuer — saisir le code d’accès
+              </Button>
+            ) : null}
           </form>
         </div>
       </div>

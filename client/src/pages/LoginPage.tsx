@@ -96,12 +96,12 @@ export default function LoginPage() {
     try {
       const { updateAdminCode } = await import("@/lib/supabase")
       const result = await updateAdminCode(newAdminCode.trim())
-      if (result) {
+      if (result.ok) {
         alert("Code admin mis à jour avec succès")
         setIsAdminCodeDialogOpen(false)
         setNewAdminCode("")
       } else {
-        alert("Erreur lors de la mise à jour du code")
+        alert(`Impossible d’enregistrer le code : ${result.error}`)
       }
     } catch (error) {
       console.error('Error updating admin code:', error)
@@ -173,11 +173,16 @@ export default function LoginPage() {
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsAdminCodeDialogOpen(false)} className="text-white border-white/20 hover:bg-white/10">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsAdminCodeDialogOpen(false)}
+                        className="text-white border-white/20 hover:bg-white/10"
+                      >
                         Annuler
                       </Button>
-                      <Button onClick={handleUpdateAdminCode}>
-                        {newAdminCode ? "Modifier" : "Créer"} le Code
+                      <Button type="button" onClick={handleUpdateAdminCode}>
+                        {newAdminCode.trim() ? "Modifier" : "Créer"} le Code
                       </Button>
                     </DialogFooter>
                   </DialogContent>

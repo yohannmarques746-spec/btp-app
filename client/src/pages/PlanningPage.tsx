@@ -96,12 +96,6 @@ function buildDurationFromDates(startDate: string, endDate: string): string {
   return `${diffDays} jours`;
 }
 
-function sendDebugLog(hypothesisId: string, message: string, data: Record<string, unknown>) {
-  // #region agent log
-  fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07ec15'},body:JSON.stringify({sessionId:'07ec15',runId:'picker-debug-1',hypothesisId,location:'client/src/pages/PlanningPage.tsx',message,data,timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-}
-
 export default function PlanningPage() {
   const { chantiers, updateChantier } = useChantiers();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -435,23 +429,11 @@ export default function PlanningPage() {
                 <div
                   className="p-3 rounded-lg bg-black/20 border border-white/10 cursor-pointer"
                   onClick={() => {
-                    // #region agent log
-                    sendDebugLog('H1', 'start-date container click', {
-                      hasInput: !!startDateInputRef.current,
-                      activeTag: document.activeElement?.tagName || null
-                    });
-                    // #endregion
                     const input = startDateInputRef.current;
                     if (!input) return;
                     try {
                       input.showPicker?.();
-                    } catch (error) {
-                      // #region agent log
-                      sendDebugLog('H3', 'start-date showPicker exception in container click', {
-                        errorMessage: error instanceof Error ? error.message : String(error)
-                      });
-                      // #endregion
-                    }
+                    } catch {}
                     input.focus();
                   }}
                 >
@@ -461,37 +443,17 @@ export default function PlanningPage() {
                     type="date"
                     value={editDateDebut}
                     onChange={(e) => setEditDateDebut(e.target.value)}
-                    onFocus={(e) => {
-                      // #region agent log
-                      sendDebugLog('H1', 'start-date input focus', {
-                        trustedEvent: e.isTrusted,
-                        activeTag: document.activeElement?.tagName || null
-                      });
-                      // #endregion
-                    }}
                     className="bg-black/20 border-white/10 text-white"
                   />
                 </div>
                 <div
                   className="p-3 rounded-lg bg-black/20 border border-white/10 cursor-pointer"
                   onClick={() => {
-                    // #region agent log
-                    sendDebugLog('H1', 'end-date container click', {
-                      hasInput: !!endDateInputRef.current,
-                      activeTag: document.activeElement?.tagName || null
-                    });
-                    // #endregion
                     const input = endDateInputRef.current;
                     if (!input) return;
                     try {
                       input.showPicker?.();
-                    } catch (error) {
-                      // #region agent log
-                      sendDebugLog('H3', 'end-date showPicker exception in container click', {
-                        errorMessage: error instanceof Error ? error.message : String(error)
-                      });
-                      // #endregion
-                    }
+                    } catch {}
                     input.focus();
                   }}
                 >
@@ -501,14 +463,6 @@ export default function PlanningPage() {
                     type="date"
                     value={editDateFin}
                     onChange={(e) => setEditDateFin(e.target.value)}
-                    onFocus={(e) => {
-                      // #region agent log
-                      sendDebugLog('H1', 'end-date input focus', {
-                        trustedEvent: e.isTrusted,
-                        activeTag: document.activeElement?.tagName || null
-                      });
-                      // #endregion
-                    }}
                     className="bg-black/20 border-white/10 text-white"
                   />
                 </div>
