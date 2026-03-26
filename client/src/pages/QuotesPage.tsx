@@ -116,6 +116,7 @@ export default function QuotesPage() {
   const { profile, saveProfile: saveProfileToDb } = useProfilEntreprise();
   const [activeView, setActiveView] = useState<ModuleView>("dashboard");
   const [editingDevisId, setEditingDevisId] = useState<string | null>(null);
+  const [selectedQuoteRef, setSelectedQuoteRef] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingDevis, setIsSavingDevis] = useState(false);
@@ -133,6 +134,18 @@ export default function QuotesPage() {
       devisForm.reset(createDefaults(profile, numero));
     })();
   }, [devisForm, getNextNumeroDevis, profile, profileForm]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const quoteRef = params.get("quoteRef");
+    if (!quoteRef) return;
+    setSelectedQuoteRef(quoteRef);
+    setActiveView("dashboard");
+    params.delete("quoteRef");
+    const nextQuery = params.toString();
+    const nextUrl = nextQuery ? `/dashboard/quotes?${nextQuery}` : "/dashboard/quotes";
+    window.history.replaceState({}, "", nextUrl);
+  }, []);
 
   useEffect(() => {
     const dateEmission = devisForm.getValues("dateEmission");
@@ -374,7 +387,7 @@ export default function QuotesPage() {
                 <p className="text-white/70">Aucun devis enregistre pour le moment.</p>
               ) : (
                 devisList.map((devis) => (
-                  <div key={devis.id} className="rounded-lg border border-white/10 bg-black/20 p-4">
+                  <div key={devis.id} className={`rounded-lg p-4 ${selectedQuoteRef === devis.numero ? "border border-yellow-300/60 bg-yellow-500/10" : "border border-white/10 bg-black/20"}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold">{devis.numero}</p>

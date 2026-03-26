@@ -15,13 +15,6 @@ interface GeneralInfoSectionProps {
   onSave: (next: GeneralInfoData) => void;
 }
 
-const CLIENT_OPTIONS = [
-  { id: "client-001", nom: "M. Dubois Laurent" },
-  { id: "client-002", nom: "Mme Rey Sophie" },
-  { id: "client-003", nom: "Regie du Lac SA" },
-  { id: "client-004", nom: "M. Martin Alain" },
-];
-
 const TYPE_TRAVAUX_OPTIONS: Array<{ value: TypeTravaux; label: string }> = [
   { value: "gros_oeuvre", label: "Gros oeuvre" },
   { value: "second_oeuvre", label: "Second oeuvre" },
@@ -51,12 +44,6 @@ export function GeneralInfoSection({ data, onSave }: GeneralInfoSectionProps) {
       descriptionCourte: data.descriptionCourte ?? "",
     });
   }, [data, form]);
-
-  const handleClientChange = (clientId: string) => {
-    const selected = CLIENT_OPTIONS.find((client) => client.id === clientId);
-    form.setValue("clientId", clientId);
-    form.setValue("clientNom", selected?.nom ?? "");
-  };
 
   const handleSave = form.handleSubmit((values) => {
     onSave({
@@ -104,20 +91,9 @@ export function GeneralInfoSection({ data, onSave }: GeneralInfoSectionProps) {
         <div className="space-y-2">
           <Label className="text-white/70">Client</Label>
           {isEditing ? (
-            <Select value={form.watch("clientId") || ""} onValueChange={handleClientChange}>
-              <SelectTrigger className="bg-black/20 border-white/20 text-white">
-                <SelectValue placeholder="Selectionner un client" />
-              </SelectTrigger>
-              <SelectContent>
-                {CLIENT_OPTIONS.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input {...form.register("clientNom")} className="bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90">{data.clientNom || "Non defini"}</p>
+            <p className="text-white/90">{data.clientNom || ""}</p>
           )}
         </div>
 
@@ -140,7 +116,7 @@ export function GeneralInfoSection({ data, onSave }: GeneralInfoSectionProps) {
               </SelectContent>
             </Select>
           ) : (
-            <p className="text-white/90">{typeLabel}</p>
+            <p className="text-white/90">{data.typeTravaux ? typeLabel : ""}</p>
           )}
         </div>
       </div>
@@ -151,7 +127,7 @@ export function GeneralInfoSection({ data, onSave }: GeneralInfoSectionProps) {
           {isEditing ? (
             <Input {...form.register("adresseChantier")} className="bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90">{data.adresseChantier || "Non definie"}</p>
+            <p className="text-white/90">{data.adresseChantier || ""}</p>
           )}
         </div>
 
@@ -160,7 +136,7 @@ export function GeneralInfoSection({ data, onSave }: GeneralInfoSectionProps) {
           {isEditing ? (
             <Textarea {...form.register("descriptionCourte")} className="min-h-[110px] bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90 whitespace-pre-wrap">{data.descriptionCourte || "Aucune description"}</p>
+            <p className="text-white/90 whitespace-pre-wrap">{data.descriptionCourte || ""}</p>
           )}
         </div>
       </div>

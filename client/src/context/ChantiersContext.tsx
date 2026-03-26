@@ -17,7 +17,14 @@ export interface Chantier {
   dateDebut: string;
   duree: string;
   images: string[];
-  statut: 'planifié' | 'en cours' | 'terminé';
+  statut: 'planifié' | 'en cours' | 'terminé' | 'archivé';
+  archived?: boolean;
+  journalEntries?: { id: string; date: string; auteur: string; texte: string; meteo: string }[];
+  incidentsProblemes?: string;
+  materiaux?: { id: string; nom: string; qte_prevue: number; qte_commandee: number; qte_livree: number; fournisseur: string }[];
+  documentsUploades?: { id: string; nom: string; categorie: string; url: string }[];
+  devisAssocies?: string[];
+  facturesAssociees?: string[];
 }
 
 interface ChantiersContextType {
@@ -28,6 +35,7 @@ interface ChantiersContextType {
   updateClient: (id: string, updates: Partial<Client>) => Promise<{ error: Error | null }>;
   addChantier: (chantier: Chantier) => Promise<{ error: Error | null }>;
   updateChantier: (id: string, updates: Partial<Chantier>) => Promise<{ error: Error | null }>;
+  deleteChantier: (id: string) => Promise<{ error: Error | null }>;
 }
 
 const ChantiersContext = createContext<ChantiersContextType | undefined>(undefined);
@@ -64,12 +72,24 @@ export function ChantiersProvider({ children }: { children: ReactNode }) {
       duree: chantier.duree,
       images: chantier.images,
       statut: chantier.statut,
+      archived: chantier.archived ?? false,
+      journalEntries: chantier.journalEntries ?? [],
+      incidentsProblemes: chantier.incidentsProblemes ?? "",
+      materiaux: chantier.materiaux ?? [],
+      documentsUploades: chantier.documentsUploades ?? [],
+      devisAssocies: chantier.devisAssocies ?? [],
+      facturesAssociees: chantier.facturesAssociees ?? [],
     });
     return { error: error as Error | null };
   };
 
   const updateChantier = async (id: string, updates: Partial<Chantier>) => {
     const { error } = await chantiersHook.updateChantier(id, updates);
+    return { error: error as Error | null };
+  };
+
+  const deleteChantier = async (id: string) => {
+    const { error } = await chantiersHook.deleteChantier(id);
     return { error: error as Error | null };
   };
 
@@ -83,6 +103,7 @@ export function ChantiersProvider({ children }: { children: ReactNode }) {
         updateClient,
         addChantier,
         updateChantier,
+        deleteChantier,
       }}
     >
       {children}

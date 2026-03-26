@@ -114,7 +114,7 @@ export function DatesPlanningSection({ data, onSave }: DatesPlanningSectionProps
           {isEditing ? (
             <Input type="date" {...form.register("dateDebutPrevue")} className="bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90">{data.dateDebutPrevue || "Non definie"}</p>
+            <p className="text-white/90">{data.dateDebutPrevue || ""}</p>
           )}
         </div>
         <div className="space-y-2">
@@ -122,7 +122,7 @@ export function DatesPlanningSection({ data, onSave }: DatesPlanningSectionProps
           {isEditing ? (
             <Input type="date" {...form.register("dateDebutReelle")} className="bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90">{data.dateDebutReelle || "Non definie"}</p>
+            <p className="text-white/90">{data.dateDebutReelle || ""}</p>
           )}
         </div>
         <div className="space-y-2">
@@ -130,7 +130,7 @@ export function DatesPlanningSection({ data, onSave }: DatesPlanningSectionProps
           {isEditing ? (
             <Input type="date" {...form.register("dateFinPrevue")} className="bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90">{data.dateFinPrevue || "Non definie"}</p>
+            <p className="text-white/90">{data.dateFinPrevue || ""}</p>
           )}
         </div>
         <div className="space-y-2">
@@ -138,7 +138,7 @@ export function DatesPlanningSection({ data, onSave }: DatesPlanningSectionProps
           {isEditing ? (
             <Input type="date" {...form.register("dateFinReelle")} className="bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90">{data.dateFinReelle || "Non definie"}</p>
+            <p className="text-white/90">{data.dateFinReelle || ""}</p>
           )}
         </div>
       </div>
@@ -164,7 +164,7 @@ export function DatesPlanningSection({ data, onSave }: DatesPlanningSectionProps
           )}
         </div>
 
-        {fields.length === 0 && <p className="text-sm text-white/60">Aucun jalon defini</p>}
+        {fields.length === 0 && <p className="text-sm text-white/60"></p>}
 
         {fields.map((field, index) => (
           <div key={field.id} className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-black/10 p-3 md:grid-cols-[1fr_220px_auto]">
@@ -192,7 +192,7 @@ export function DatesPlanningSection({ data, onSave }: DatesPlanningSectionProps
             ) : (
               <>
                 <p className="text-white/90">{field.nom || "Jalon sans nom"}</p>
-                <p className="text-white/70">{field.date || "Date non definie"}</p>
+                <p className="text-white/70">{field.date || ""}</p>
               </>
             )}
           </div>

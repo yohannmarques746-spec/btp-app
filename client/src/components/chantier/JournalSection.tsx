@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { Edit3, NotebookPen, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +31,7 @@ const METEO_OPTIONS: Array<{ value: MeteoCondition; label: string }> = [
 
 export function JournalSection({ data, onSave }: JournalSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [expandedEntryIndex, setExpandedEntryIndex] = useState<number | null>(null);
   const form = useForm<JournalFormData>({
     defaultValues: {
       journalEntries: data.journalEntries ?? [],
@@ -131,7 +133,14 @@ export function JournalSection({ data, onSave }: JournalSectionProps) {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-[160px_160px_1fr_130px_auto]">
                   <Input type="date" {...form.register(`journalEntries.${realIndex}.date` as const)} className="bg-black/20 border-white/20 text-white" />
                   <Input {...form.register(`journalEntries.${realIndex}.auteur` as const)} placeholder="Auteur" className="bg-black/20 border-white/20 text-white" />
-                  <Input {...form.register(`journalEntries.${realIndex}.texte` as const)} placeholder="Texte" className="bg-black/20 border-white/20 text-white" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-white border-white/20 hover:bg-white/10 justify-start"
+                    onClick={() => setExpandedEntryIndex(realIndex)}
+                  >
+                    {form.watch(`journalEntries.${realIndex}.texte`) ? "Modifier le texte" : "Saisir le texte"}
+                  </Button>
                   <Select
                     value={form.watch(`journalEntries.${realIndex}.meteo`) || "beau"}
                     onValueChange={(value) => form.setValue(`journalEntries.${realIndex}.meteo`, value as MeteoCondition)}
@@ -177,6 +186,28 @@ export function JournalSection({ data, onSave }: JournalSectionProps) {
           <p className="text-white/90 whitespace-pre-wrap">{form.watch("incidentsProblemes") || "Aucun incident signale"}</p>
         )}
       </div>
+
+      <Dialog open={expandedEntryIndex !== null} onOpenChange={(open) => !open && setExpandedEntryIndex(null)}>
+        <DialogContent className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Texte du rapport chantier</DialogTitle>
+          </DialogHeader>
+          {expandedEntryIndex !== null && (
+            <div className="space-y-3">
+              <Textarea
+                value={form.watch(`journalEntries.${expandedEntryIndex}.texte`) || ""}
+                onChange={(e) => form.setValue(`journalEntries.${expandedEntryIndex}.texte`, e.target.value)}
+                className="min-h-[220px] bg-black/20 border-white/20 text-white"
+              />
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => setExpandedEntryIndex(null)} className="bg-white/20 hover:bg-white/30 text-white border border-white/20">
+                  Enregistrer
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

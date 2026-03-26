@@ -117,6 +117,15 @@ export function MaterialsSection({ data, onSave }: MaterialsSectionProps) {
 
       <div className="space-y-2">
         {materiauxArray.fields.length === 0 && <p className="text-sm text-white/60">Aucun materiau renseigne</p>}
+        <div className="hidden lg:grid lg:grid-cols-[1.2fr_120px_120px_120px_1fr_160px_auto] gap-2 px-1 text-xs text-white/60">
+          <p>Designation</p>
+          <p>Qte prevue</p>
+          <p>Qte commandee</p>
+          <p>Qte livree</p>
+          <p>Fournisseur</p>
+          <p>Statut</p>
+          <p>Actions</p>
+        </div>
         {materiauxArray.fields.map((field, index) => (
           <div key={field.id} className="rounded-lg border border-white/10 bg-black/10 p-3">
             {isEditing ? (

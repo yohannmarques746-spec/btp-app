@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChantiers } from "@/context/ChantiersContext";
+import { useToast } from "@/hooks/use-toast";
 import { chantierDetailsMock } from "@/mocks/chantierMock";
 import type { ChantierDetails, ChantierHeader, ChantierStatut } from "@/types/chantierDetails";
 import { FicheHeaderSection } from "@/components/chantier/FicheHeaderSection";
@@ -19,14 +20,27 @@ interface FicheChantierProps {
   onBack: () => void;
 }
 
-function mapLegacyStatus(statut: "planifié" | "en cours" | "terminé"): ChantierStatut {
+function mapLegacyStatus(statut: "planifié" | "en cours" | "terminé" | "archivé"): ChantierStatut {
   if (statut === "en cours") return "en_cours";
   if (statut === "terminé") return "termine";
+  if (statut === "archivé") return "arrete";
   return "en_attente";
 }
 
+function durationFromDates(start?: string, end?: string): string {
+  if (!start || !end) return "";
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return "";
+  const diffMs = endDate.getTime() - startDate.getTime();
+  if (diffMs < 0) return "";
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+  return `${days} jour${days > 1 ? "s" : ""}`;
+}
+
 export function FicheChantier({ id, onBack }: FicheChantierProps) {
-  const { chantiers } = useChantiers();
+  const { chantiers, updateChantier, deleteChantier } = useChantiers();
+  const { toast } = useToast();
 
   const initialDetails = useMemo<ChantierDetails>(() => {
     const fromList = chantiers.find((c) => c.id === id);
@@ -39,8 +53,13 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
       nom: fromList.nom,
       statut: mapLegacyStatus(fromList.statut),
       clientNom: fromList.clientName,
-      dateDebutPrevue: fromList.dateDebut || chantierDetailsMock.dateDebutPrevue,
-      descriptionCourte: chantierDetailsMock.descriptionCourte,
+      dateDebutPrevue: fromList.dateDebut || "",
+      dateDebutReelle: "",
+      dateFinPrevue: "",
+      dateFinReelle: "",
+      dureeJoursCalendaires: undefined,
+      descriptionCourte: "",
+      jalons: [],
     };
   }, [chantiers, id]);
 
@@ -50,11 +69,36 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
     setChantierData((prev) => ({ ...prev, ...next }));
   };
 
-  const handleArchive = () => {
-    setChantierData((prev) => ({ ...prev, archived: true }));
+  const handleArchive = async () => {
+    const { error } = await updateChantier(id, { statut: "archivé", archived: true });
+    if (error) {
+      toast({ title: "Erreur", description: error.message });
+      return;
+    }
+    toast({ title: "Chantier archivé" });
+    setChantierData((prev) => ({ ...prev, archived: true, statut: "arrete" }));
+    onBack();
   };
 
-  const handleDelete = () => {
+  const handleUnarchive = async () => {
+    const { error } = await updateChantier(id, { statut: "planifié", archived: false });
+    if (error) {
+      toast({ title: "Erreur", description: error.message });
+      return;
+    }
+    toast({ title: "Chantier désarchivé" });
+    setChantierData((prev) => ({ ...prev, archived: false, statut: "en_attente" }));
+    onBack();
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Supprimer définitivement ce chantier ?")) return;
+    const { error } = await deleteChantier(id);
+    if (error) {
+      toast({ title: "Erreur", description: error.message });
+      return;
+    }
+    toast({ title: "Chantier supprimé" });
     onBack();
   };
 
@@ -78,6 +122,7 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
           }}
           onSave={handleSaveHeader}
           onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
           onDelete={handleDelete}
         />
       </div>
@@ -91,7 +136,17 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
             typeTravaux: chantierData.typeTravaux,
             descriptionCourte: chantierData.descriptionCourte,
           }}
-          onSave={(updated) => setChantierData((prev) => ({ ...prev, ...updated }))}
+          onSave={async (updated) => {
+            setChantierData((prev) => ({ ...prev, ...updated }));
+            const source = chantiers.find((c) => c.id === id);
+            const { error } = await updateChantier(id, {
+              clientId: updated.clientId || source?.clientId,
+              clientName: updated.clientNom || source?.clientName,
+            });
+            if (error) {
+              toast({ title: "Erreur", description: error.message });
+            }
+          }}
         />
 
         <DatesPlanningSection
@@ -103,7 +158,19 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
             dureeJoursCalendaires: chantierData.dureeJoursCalendaires,
             jalons: chantierData.jalons,
           }}
-          onSave={(updated) => setChantierData((prev) => ({ ...prev, ...updated }))}
+          onSave={async (updated) => {
+            setChantierData((prev) => ({ ...prev, ...updated }));
+            const nextStart = updated.dateDebutReelle || updated.dateDebutPrevue || "";
+            const nextEnd = updated.dateFinReelle || updated.dateFinPrevue || "";
+            const nextDuree = durationFromDates(nextStart, nextEnd);
+            const { error } = await updateChantier(id, {
+              dateDebut: nextStart,
+              duree: nextDuree,
+            });
+            if (error) {
+              toast({ title: "Erreur", description: error.message });
+            }
+          }}
         />
 
         <FinancialSection
@@ -117,7 +184,22 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
             facturesAssociees: chantierData.facturesAssociees,
             documentsUploades: chantierData.documentsUploades,
           }}
-          onSave={(updated) => setChantierData((prev) => ({ ...prev, ...updated }))}
+          onSave={async (updated) => {
+            setChantierData((prev) => ({ ...prev, ...updated }));
+            const { error } = await updateChantier(id, {
+              devisAssocies: (updated.devisAssocies ?? []).map((item) => item.nom),
+              facturesAssociees: (updated.facturesAssociees ?? []).map((item) => item.nom),
+              documentsUploades: (updated.documentsUploades ?? []).map((item) => ({
+                id: item.id,
+                nom: item.nom,
+                categorie: item.type,
+                url: item.lien ?? "",
+              })),
+            });
+            if (error) {
+              toast({ title: "Erreur", description: error.message });
+            }
+          }}
         />
 
         <TeamSection
@@ -136,14 +218,44 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
             journalEntries: chantierData.journalEntries,
             incidentsProblemes: chantierData.incidentsProblemes,
           }}
-          onSave={(updated) => setChantierData((prev) => ({ ...prev, ...updated }))}
+          onSave={async (updated) => {
+            setChantierData((prev) => ({ ...prev, ...updated }));
+            const { error } = await updateChantier(id, {
+              journalEntries: (updated.journalEntries ?? []).map((entry) => ({
+                id: entry.id,
+                date: entry.date,
+                auteur: entry.auteur,
+                texte: entry.texte,
+                meteo: entry.meteo ?? "beau",
+              })),
+              incidentsProblemes: updated.incidentsProblemes ?? "",
+            });
+            if (error) {
+              toast({ title: "Erreur", description: error.message });
+            }
+          }}
         />
 
         <MaterialsSection
           data={{
             materiaux: chantierData.materiaux,
           }}
-          onSave={(updated) => setChantierData((prev) => ({ ...prev, ...updated }))}
+          onSave={async (updated) => {
+            setChantierData((prev) => ({ ...prev, ...updated }));
+            const { error } = await updateChantier(id, {
+              materiaux: (updated.materiaux ?? []).map((item) => ({
+                id: item.id,
+                nom: item.nom,
+                qte_prevue: item.qtePrevue,
+                qte_commandee: item.qteCommandee,
+                qte_livree: item.qteLivree,
+                fournisseur: item.fournisseur,
+              })),
+            });
+            if (error) {
+              toast({ title: "Erreur", description: error.message });
+            }
+          }}
         />
 
         <NotesSection

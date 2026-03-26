@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building, Plus, Calendar, Clock, User, Image as ImageIcon, X } from 'lucide-react';
+import { Building, Plus, Calendar, Clock, User, Image as ImageIcon, X, Archive } from 'lucide-react';
 import { useState, useCallback, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useChantiers, Chantier } from '@/context/ChantiersContext';
@@ -18,6 +18,7 @@ export default function ProjectsPage() {
   const [location, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedChantierId, setSelectedChantierId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const [newChantier, setNewChantier] = useState({
     nom: '',
@@ -28,6 +29,9 @@ export default function ProjectsPage() {
   });
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const visibleChantiers = chantiers.filter((chantier) =>
+    showArchived ? chantier.archived : !chantier.archived
+  );
   const filteredClients = clients.filter((client) =>
     client.name.toLowerCase().includes(clientSearch.toLowerCase())
   );
@@ -62,6 +66,9 @@ export default function ProjectsPage() {
 
   const handleAddChantier = async () => {
     if (!newChantier.nom || !newChantier.clientId || !newChantier.dateDebut || !newChantier.duree) {
+      // #region agent log
+      fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'pre-fix',hypothesisId:'H3',location:'ProjectsPage.tsx:70',message:'add blocked by required fields',data:{nom:!!newChantier.nom,clientId:!!newChantier.clientId,dateDebut:!!newChantier.dateDebut,duree:!!newChantier.duree},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return;
     }
     setIsSaving(true);
@@ -75,12 +82,16 @@ export default function ProjectsPage() {
       dateDebut: newChantier.dateDebut,
       duree: newChantier.duree,
       images: newChantier.images,
-      statut: 'planifié'
+      statut: 'planifié',
+      archived: false,
     };
 
     const { error } = await addChantier(chantier);
     setIsSaving(false);
     if (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'pre-fix',hypothesisId:'H4',location:'ProjectsPage.tsx:92',message:'addChantier error surfaced',data:{code:(error as {code?:string})?.code ?? null,message:error.message},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error('ProjectsPage.handleAddChantier', error);
       toast({ title: "Erreur lors de l'enregistrement", description: error.message });
       return;
@@ -96,15 +107,42 @@ export default function ProjectsPage() {
     setLocation('/dashboard/clients?openDialog=true');
   };
 
+  const getClientNameForChantier = (chantier: Chantier): string => {
+    if (chantier.clientId) {
+      const linkedClient = clients.find((client) => client.id === chantier.clientId);
+      if (linkedClient?.name) return linkedClient.name;
+    }
+    if (chantier.clientName && chantier.clientName !== 'Client inconnu') return chantier.clientName;
+    return 'Client non défini';
+  };
+
   // Ouvrir la popup si le paramètre openDialog est présent dans l'URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    let shouldReplaceUrl = false;
+
     if (params.get('openDialog') === 'true') {
       setIsDialogOpen(true);
-      // Nettoyer l'URL
-      window.history.replaceState({}, '', '/dashboard/projects');
+      params.delete('openDialog');
+      shouldReplaceUrl = true;
     }
-  }, [location]);
+
+    const chantierId = params.get('chantierId');
+    if (chantierId) {
+      const exists = chantiers.some((chantier) => chantier.id === chantierId);
+      if (exists) {
+        setSelectedChantierId(chantierId);
+      }
+      params.delete('chantierId');
+      shouldReplaceUrl = true;
+    }
+
+    if (shouldReplaceUrl) {
+      const nextQuery = params.toString();
+      const nextUrl = nextQuery ? `/dashboard/projects?${nextQuery}` : '/dashboard/projects';
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, [location, chantiers]);
 
   return (
     <PageWrapper>
@@ -112,11 +150,22 @@ export default function ProjectsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">
-              Mes Chantiers
+              {showArchived ? 'Chantiers archivés' : 'Mes Chantiers'}
             </h1>
-            <p className="text-sm text-white/70">Gérez tous vos projets en cours et terminés</p>
+            <p className="text-sm text-white/70">
+              {showArchived ? 'Consultez vos chantiers archivés' : 'Gérez tous vos projets en cours et terminés'}
+            </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowArchived((prev) => !prev)}
+              className={`border-white/20 hover:bg-white/10 ${showArchived ? 'text-yellow-300' : 'text-white'}`}
+            >
+              <Archive className="h-4 w-4 mr-2" />
+              {showArchived ? 'Voir actifs' : 'Archivés'}
+            </Button>
             <Link href="/dashboard/clients">
               <Button variant="outline" className="text-white border-white/20 hover:bg-white/10">
                 <User className="h-4 w-4 mr-2" />
@@ -274,32 +323,36 @@ export default function ProjectsPage() {
       <main className="flex-1 p-6">
         {selectedChantierId ? (
           <FicheChantier id={selectedChantierId} onBack={() => setSelectedChantierId(null)} />
-        ) : chantiers.length === 0 ? (
+        ) : visibleChantiers.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <Card className="w-full max-w-md text-center bg-black/20 backdrop-blur-xl border border-white/10 text-white">
               <CardHeader className="pb-4">
                 <div className="w-16 h-16 mx-auto rounded-xl bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center mb-4">
                   <Building className="h-8 w-8 text-white/70" />
                 </div>
-                <CardTitle className="text-xl text-white">Aucun chantier</CardTitle>
+                <CardTitle className="text-xl text-white">
+                  {showArchived ? 'Aucun chantier archivé' : 'Aucun chantier'}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-white/70 mb-4">
-                  Commencez par ajouter votre premier chantier
+                  {showArchived ? 'Archivez un chantier pour le retrouver ici' : 'Commencez par ajouter votre premier chantier'}
                 </p>
-                <Button
-                  onClick={() => setIsDialogOpen(true)}
-                  className="bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Ajouter un chantier
-                </Button>
+                {!showArchived && (
+                  <Button
+                    onClick={() => setIsDialogOpen(true)}
+                    className="bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Ajouter un chantier
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {chantiers.map((chantier) => (
+            {visibleChantiers.map((chantier) => (
               <Card
                 key={chantier.id}
                 className="bg-black/20 backdrop-blur-xl border border-white/10 text-white hover:shadow-lg transition-shadow cursor-pointer"
@@ -324,7 +377,7 @@ export default function ProjectsPage() {
                   <CardTitle className="text-lg">{chantier.nom}</CardTitle>
                   <div className="flex items-center gap-2 text-sm text-white/70">
                     <User className="h-4 w-4" />
-                    {chantier.clientName}
+                    {getClientNameForChantier(chantier)}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -340,7 +393,8 @@ export default function ProjectsPage() {
                     <span className={`px-2 py-1 rounded text-xs ${
                       chantier.statut === 'planifié' ? 'bg-blue-500/20 text-blue-300' :
                       chantier.statut === 'en cours' ? 'bg-green-500/20 text-green-300' :
-                      'bg-gray-500/20 text-gray-300'
+                      chantier.statut === 'terminé' ? 'bg-gray-500/20 text-gray-300' :
+                      'bg-yellow-500/20 text-yellow-300'
                     }`}>
                       {chantier.statut}
                     </span>

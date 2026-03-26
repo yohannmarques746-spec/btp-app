@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Euro, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFactures, type FactureStatus } from '@/hooks/useFactures';
 import { useToast } from '@/hooks/use-toast';
 
 export default function PaymentsPage() {
   const { toast } = useToast();
   const { factures, loading, saveFacture, deleteFacture } = useFactures();
+  const [selectedFactureRef, setSelectedFactureRef] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
     numero: '',
@@ -54,6 +55,17 @@ export default function PaymentsPage() {
       montantTTC: '',
     });
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const factureRef = params.get('factureRef');
+    if (!factureRef) return;
+    setSelectedFactureRef(factureRef);
+    params.delete('factureRef');
+    const nextQuery = params.toString();
+    const nextUrl = nextQuery ? `/dashboard/payments?${nextQuery}` : '/dashboard/payments';
+    window.history.replaceState({}, '', nextUrl);
+  }, []);
 
   return (
     <PageWrapper>
@@ -133,7 +145,7 @@ export default function PaymentsPage() {
               <p className="text-white/70">Aucune facture enregistrée.</p>
             ) : (
               factures.map((facture) => (
-                <div key={facture.id} className="rounded-lg border border-white/10 bg-black/20 p-3 flex items-center justify-between">
+                <div key={facture.id} className={`rounded-lg p-3 flex items-center justify-between ${selectedFactureRef === facture.numero ? 'border border-yellow-300/60 bg-yellow-500/10' : 'border border-white/10 bg-black/20'}`}>
                   <div>
                     <p className="font-semibold">{facture.numero}</p>
                     <p className="text-sm text-white/70">{facture.statut} • {facture.montantTTC.toFixed(2)} CHF</p>

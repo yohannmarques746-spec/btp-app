@@ -12,6 +12,7 @@ interface FicheHeaderSectionProps {
   chantier: ChantierHeader;
   onSave: (next: ChantierHeader) => void;
   onArchive: () => void;
+  onUnarchive: () => void;
   onDelete: () => void;
 }
 
@@ -22,7 +23,7 @@ const statusMeta: Record<ChantierStatut, { label: string; classes: string }> = {
   arrete: { label: "Arrete", classes: "bg-red-500/20 text-red-300 border border-red-400/30" },
 };
 
-export function FicheHeaderSection({ chantier, onSave, onArchive, onDelete }: FicheHeaderSectionProps) {
+export function FicheHeaderSection({ chantier, onSave, onArchive, onUnarchive, onDelete }: FicheHeaderSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const form = useForm<ChantierHeader>({
     defaultValues: chantier,
@@ -122,10 +123,17 @@ export function FicheHeaderSection({ chantier, onSave, onArchive, onDelete }: Fi
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pt-4">
-        <Button type="button" variant="ghost" onClick={onArchive} className="text-white/70 hover:text-white hover:bg-white/10">
-          <Archive className="mr-2 h-4 w-4" />
-          Archiver
-        </Button>
+        {chantier.archived ? (
+          <Button type="button" variant="ghost" onClick={onUnarchive} className="text-yellow-300 hover:text-yellow-200 hover:bg-yellow-500/10">
+            <Archive className="mr-2 h-4 w-4" />
+            Desarchiver
+          </Button>
+        ) : (
+          <Button type="button" variant="ghost" onClick={onArchive} className="text-white/70 hover:text-white hover:bg-white/10">
+            <Archive className="mr-2 h-4 w-4" />
+            Archiver
+          </Button>
+        )}
         <Button type="button" variant="ghost" onClick={onDelete} className="text-red-300 hover:text-red-200 hover:bg-red-500/10">
           <Trash2 className="mr-2 h-4 w-4" />
           Supprimer

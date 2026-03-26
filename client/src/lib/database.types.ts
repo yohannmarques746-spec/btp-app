@@ -73,6 +73,13 @@ export type Database = {
           notes: string | null;
           duree: string | null;
           images: Json | null;
+          journal_entries: Json | null;
+          incidents_problemes: Json | null;
+          materiaux: Json | null;
+          documents_uploades: Json | null;
+          devis_associes: Json | null;
+          factures_associees: Json | null;
+          archived: boolean | null;
         };
         Insert: Partial<Database["public"]["Tables"]["chantiers"]["Row"]> & { nom: string };
         Update: Partial<Database["public"]["Tables"]["chantiers"]["Row"]>;
