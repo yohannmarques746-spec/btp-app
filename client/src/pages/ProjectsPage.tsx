@@ -32,6 +32,7 @@ export default function ProjectsPage() {
   const visibleChantiers = chantiers.filter((chantier) =>
     showArchived ? chantier.archived : !chantier.archived
   );
+
   const filteredClients = clients.filter((client) =>
     client.name.toLowerCase().includes(clientSearch.toLowerCase())
   );
@@ -66,9 +67,6 @@ export default function ProjectsPage() {
 
   const handleAddChantier = async () => {
     if (!newChantier.nom || !newChantier.clientId || !newChantier.dateDebut || !newChantier.duree) {
-      // #region agent log
-      fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'pre-fix',hypothesisId:'H3',location:'ProjectsPage.tsx:70',message:'add blocked by required fields',data:{nom:!!newChantier.nom,clientId:!!newChantier.clientId,dateDebut:!!newChantier.dateDebut,duree:!!newChantier.duree},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return;
     }
     setIsSaving(true);
@@ -78,7 +76,7 @@ export default function ProjectsPage() {
       id: Date.now().toString(),
       nom: newChantier.nom,
       clientId: newChantier.clientId,
-      clientName: client?.name || 'Client inconnu',
+      clientName: client?.name ?? '',
       dateDebut: newChantier.dateDebut,
       duree: newChantier.duree,
       images: newChantier.images,
@@ -89,9 +87,6 @@ export default function ProjectsPage() {
     const { error } = await addChantier(chantier);
     setIsSaving(false);
     if (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'pre-fix',hypothesisId:'H4',location:'ProjectsPage.tsx:92',message:'addChantier error surfaced',data:{code:(error as {code?:string})?.code ?? null,message:error.message},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       console.error('ProjectsPage.handleAddChantier', error);
       toast({ title: "Erreur lors de l'enregistrement", description: error.message });
       return;
@@ -112,7 +107,7 @@ export default function ProjectsPage() {
       const linkedClient = clients.find((client) => client.id === chantier.clientId);
       if (linkedClient?.name) return linkedClient.name;
     }
-    if (chantier.clientName && chantier.clientName !== 'Client inconnu') return chantier.clientName;
+    if (chantier.clientName) return chantier.clientName;
     return 'Client non défini';
   };
 
@@ -322,7 +317,7 @@ export default function ProjectsPage() {
 
       <main className="flex-1 p-6">
         {selectedChantierId ? (
-          <FicheChantier id={selectedChantierId} onBack={() => setSelectedChantierId(null)} />
+          <FicheChantier key={selectedChantierId} id={selectedChantierId} onBack={() => setSelectedChantierId(null)} />
         ) : visibleChantiers.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <Card className="w-full max-w-md text-center bg-black/20 backdrop-blur-xl border border-white/10 text-white">

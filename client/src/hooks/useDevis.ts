@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, getCurrentUserId } from "@/lib/supabase";
+import { normalizeUniteLegacy } from "@/constants/unitesPrestation";
 import type { Devis, Emetteur, LignePrestation } from "@/types/devis";
 import { computeDevisStatus } from "@/utils/devisCalculs";
 
@@ -29,7 +30,11 @@ function mapRowToDevis(row: {
   created_at: string | null;
   updated_at: string | null;
 }): Devis {
-  const lignes = Array.isArray(row.lignes) ? (row.lignes as LignePrestation[]) : [];
+  const lignesRaw = Array.isArray(row.lignes) ? (row.lignes as LignePrestation[]) : [];
+  const lignes = lignesRaw.map((l) => ({
+    ...l,
+    unite: normalizeUniteLegacy(typeof l.unite === "string" ? l.unite : String(l.unite ?? "")),
+  }));
   const client = (row.client as Devis["client"] | null) ?? { nom: "", adresse: "", npa: "", ville: "" };
   const emetteur = (row.emetteur as Emetteur | null) ?? {
     nom: "",

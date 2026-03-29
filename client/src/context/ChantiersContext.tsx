@@ -7,6 +7,12 @@ export interface Client {
   name: string;
   email: string;
   phone: string;
+  prenom?: string;
+  adresse?: string;
+  npa?: string;
+  localite?: string;
+  pays?: string;
+  notes?: string;
 }
 
 export interface Chantier {
@@ -49,6 +55,12 @@ export function ChantiersProvider({ children }: { children: ReactNode }) {
       name: client.name,
       email: client.email,
       phone: client.phone,
+      prenom: client.prenom,
+      adresse: client.adresse,
+      npa: client.npa,
+      localite: client.localite,
+      pays: client.pays,
+      notes: client.notes,
     });
     return { error: error as Error | null };
   };
@@ -60,6 +72,12 @@ export function ChantiersProvider({ children }: { children: ReactNode }) {
       name: updates.name ?? current.name,
       email: updates.email ?? current.email,
       phone: updates.phone ?? current.phone,
+      prenom: updates.prenom ?? current.prenom,
+      adresse: updates.adresse ?? current.adresse,
+      npa: updates.npa ?? current.npa,
+      localite: updates.localite ?? current.localite,
+      pays: updates.pays ?? current.pays,
+      notes: updates.notes ?? current.notes,
     }, id);
     return { error: error as Error | null };
   };

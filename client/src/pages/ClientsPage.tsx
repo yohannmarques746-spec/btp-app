@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { User, Plus, Building, Mail, Phone, Image as ImageIcon, Pencil, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -12,6 +13,22 @@ import { formatCHF } from '@/utils/chf';
 import type { Devis } from '@/types/devis';
 import { useDevis } from '@/hooks/useDevis';
 import { useToast } from '@/hooks/use-toast';
+
+const emptyNewClientState = {
+  name: '',
+  email: '',
+  phone: '',
+  prenom: '',
+  adresse: '',
+  npa: '',
+  localite: '',
+  pays: '',
+  notes: '',
+};
+
+function formatClientAddressLine(c: Pick<Client, 'adresse' | 'npa' | 'localite'>): string {
+  return [c.adresse, c.npa, c.localite].filter(Boolean).join(' ').trim();
+}
 
 export default function ClientsPage() {
   const { toast } = useToast();
@@ -24,7 +41,7 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isChantierEditDialogOpen, setIsChantierEditDialogOpen] = useState(false);
   const [editingChantier, setEditingChantier] = useState<Chantier | null>(null);
-  const [newClient, setNewClient] = useState({ name: '', email: '', phone: '' });
+  const [newClient, setNewClient] = useState({ ...emptyNewClientState });
   const [isSavingClient, setIsSavingClient] = useState(false);
 
   useEffect(() => {
@@ -81,7 +98,7 @@ export default function ClientsPage() {
       toast({ title: "Erreur lors de l'enregistrement", description: error.message });
       return;
     }
-    setNewClient({ name: '', email: '', phone: '' });
+    setNewClient({ ...emptyNewClientState });
     setIsDialogOpen(false);
     toast({ title: 'Enregistré avec succès' });
   };
@@ -99,6 +116,12 @@ export default function ClientsPage() {
       name: editingClient.name,
       email: editingClient.email,
       phone: editingClient.phone,
+      prenom: editingClient.prenom,
+      adresse: editingClient.adresse,
+      npa: editingClient.npa,
+      localite: editingClient.localite,
+      pays: editingClient.pays,
+      notes: editingClient.notes,
     });
     setIsSavingClient(false);
     if (error) {
@@ -153,7 +176,7 @@ export default function ClientsPage() {
                   Ajouter un Client
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
+              <DialogContent className="max-h-[85vh] overflow-y-auto bg-black/20 backdrop-blur-xl border border-white/10 text-white">
                 <DialogHeader>
                   <DialogTitle className="text-white">Nouveau Client</DialogTitle>
                 </DialogHeader>
@@ -186,6 +209,66 @@ export default function ClientsPage() {
                       placeholder="06 12 34 56 78"
                       className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
                     />
+                  </div>
+                  <div className="space-y-3 border-t border-white/10 pt-4">
+                    <p className="text-sm font-medium text-white">Informations complémentaires (facultatif)</p>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="md:col-span-2">
+                        <Label className="text-white">Prénom</Label>
+                        <Input
+                          value={newClient.prenom}
+                          onChange={(e) => setNewClient({ ...newClient, prenom: e.target.value })}
+                          placeholder="Prénom ou contact"
+                          className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-white">Adresse</Label>
+                        <Input
+                          value={newClient.adresse}
+                          onChange={(e) => setNewClient({ ...newClient, adresse: e.target.value })}
+                          placeholder="Rue et numéro"
+                          className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-white">NPA</Label>
+                        <Input
+                          value={newClient.npa}
+                          onChange={(e) => setNewClient({ ...newClient, npa: e.target.value })}
+                          placeholder="Ex. 1000"
+                          className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-white">Ville</Label>
+                        <Input
+                          value={newClient.localite}
+                          onChange={(e) => setNewClient({ ...newClient, localite: e.target.value })}
+                          placeholder="Localité"
+                          className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-white">Pays</Label>
+                        <Input
+                          value={newClient.pays}
+                          onChange={(e) => setNewClient({ ...newClient, pays: e.target.value })}
+                          placeholder="Ex. Suisse"
+                          className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-white">Notes</Label>
+                        <Textarea
+                          value={newClient.notes}
+                          onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
+                          placeholder="Remarques internes (facultatif)"
+                          rows={2}
+                          className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button
@@ -270,6 +353,9 @@ export default function ClientsPage() {
                     <div className="text-xl">{selectedClient.name}</div>
                     <div className="text-sm font-normal text-white/70">{selectedClient.email}</div>
                     <div className="text-sm font-normal text-white/70">{selectedClient.phone}</div>
+                    {formatClientAddressLine(selectedClient) ? (
+                      <div className="text-sm font-normal text-white/70">{formatClientAddressLine(selectedClient)}</div>
+                    ) : null}
                   </div>
                   </div>
                   <Button
@@ -391,7 +477,7 @@ export default function ClientsPage() {
       </main>
 
       <Dialog open={isClientEditDialogOpen} onOpenChange={setIsClientEditDialogOpen}>
-        <DialogContent className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
+        <DialogContent className="max-h-[85vh] overflow-y-auto bg-black/20 backdrop-blur-xl border border-white/10 text-white">
           <DialogHeader>
             <DialogTitle className="text-white">Modifier le client</DialogTitle>
           </DialogHeader>
@@ -421,6 +507,66 @@ export default function ClientsPage() {
                   onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })}
                   className="bg-black/20 backdrop-blur-md border-white/10 text-white"
                 />
+              </div>
+              <div className="space-y-3 border-t border-white/10 pt-4">
+                <p className="text-sm font-medium text-white">Informations complémentaires (facultatif)</p>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <Label className="text-white">Prénom</Label>
+                    <Input
+                      value={editingClient.prenom ?? ''}
+                      onChange={(e) => setEditingClient({ ...editingClient, prenom: e.target.value })}
+                      placeholder="Prénom ou contact"
+                      className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-white">Adresse</Label>
+                    <Input
+                      value={editingClient.adresse ?? ''}
+                      onChange={(e) => setEditingClient({ ...editingClient, adresse: e.target.value })}
+                      placeholder="Rue et numéro"
+                      className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white">NPA</Label>
+                    <Input
+                      value={editingClient.npa ?? ''}
+                      onChange={(e) => setEditingClient({ ...editingClient, npa: e.target.value })}
+                      placeholder="Ex. 1000"
+                      className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white">Ville</Label>
+                    <Input
+                      value={editingClient.localite ?? ''}
+                      onChange={(e) => setEditingClient({ ...editingClient, localite: e.target.value })}
+                      placeholder="Localité"
+                      className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-white">Pays</Label>
+                    <Input
+                      value={editingClient.pays ?? ''}
+                      onChange={(e) => setEditingClient({ ...editingClient, pays: e.target.value })}
+                      placeholder="Ex. Suisse"
+                      className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-white">Notes</Label>
+                    <Textarea
+                      value={editingClient.notes ?? ''}
+                      onChange={(e) => setEditingClient({ ...editingClient, notes: e.target.value })}
+                      placeholder="Remarques internes (facultatif)"
+                      rows={2}
+                      className="bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50"
+                    />
+                  </div>
+                </div>
               </div>
               <div className="flex justify-end">
                 <Button onClick={handleSaveClient} disabled={isSavingClient} className="bg-white/20 border border-white/10 hover:bg-white/30">

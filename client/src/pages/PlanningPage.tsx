@@ -3,33 +3,57 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, Building, Clock, User } from 'lucide-react';
 import { useChantiers, Chantier } from '@/context/ChantiersContext';
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useLocation } from 'wouter';
+import { useToast } from '@/hooks/use-toast';
+
+type DurationUnit = 'j' | 's' | 'm';
+
+function formatDurationLabel(amount: number, unit: DurationUnit): string {
+  if (unit === 'm') return `${amount} mois`;
+  if (unit === 's') return `${amount} semaine${amount > 1 ? 's' : ''}`;
+  return `${amount} jour${amount > 1 ? 's' : ''}`;
+}
+
+function parseDurationInput(raw: string): { amount: number; unit: DurationUnit; days: number; label: string } | null {
+  const value = raw.toLowerCase().trim();
+  const compact = value.replace(/\s+/g, '');
+
+  const compactMatch = compact.match(/^(\d+)([jsm])$/);
+  if (compactMatch) {
+    const amount = Math.max(1, parseInt(compactMatch[1], 10));
+    const unit = compactMatch[2] as DurationUnit;
+    const days = unit === 'm' ? amount * 30 : unit === 's' ? amount * 7 : amount;
+    return { amount, unit, days, label: formatDurationLabel(amount, unit) };
+  }
+
+  const number = parseInt(value.match(/\d+/)?.[0] || '1', 10);
+  const amount = Math.max(1, number);
+
+  if (value.includes('mois')) {
+    return { amount, unit: 'm', days: amount * 30, label: formatDurationLabel(amount, 'm') };
+  }
+  if (value.includes('semaine') || value.includes('sem') || value.includes('week') || value.includes('w')) {
+    return { amount, unit: 's', days: amount * 7, label: formatDurationLabel(amount, 's') };
+  }
+  if (value.includes('jour') || value.includes('j')) {
+    return { amount, unit: 'j', days: amount, label: formatDurationLabel(amount, 'j') };
+  }
+  if (/^\d+$/.test(compact)) {
+    return { amount, unit: 'j', days: amount, label: formatDurationLabel(amount, 'j') };
+  }
+
+  return null;
+}
 
 // Fonction pour parser la durée et calculer la date de fin
 function calculateEndDate(dateDebut: string, duree: string): Date {
   const startDate = new Date(dateDebut);
-  const dureeLower = duree.toLowerCase().trim();
-  
-  // Parser différentes formats de durée
-  let daysToAdd = 0;
-  
-  if (dureeLower.includes('semaine') || dureeLower.includes('sem') || dureeLower.includes('w')) {
-    const weeks = parseInt(dureeLower.match(/\d+/)?.[0] || '1');
-    daysToAdd = weeks * 7;
-  } else if (dureeLower.includes('mois')) {
-    const months = parseInt(dureeLower.match(/\d+/)?.[0] || '1');
-    daysToAdd = months * 30; // Approximation
-  } else if (dureeLower.includes('jour') || dureeLower.includes('j')) {
-    const days = parseInt(dureeLower.match(/\d+/)?.[0] || '1');
-    daysToAdd = days;
-  } else {
-    // Si c'est juste un nombre, on assume des jours
-    const days = parseInt(dureeLower.match(/\d+/)?.[0] || '1');
-    daysToAdd = days;
-  }
-  
+  const parsed = parseDurationInput(duree);
+  const daysToAdd = parsed?.days ?? 1;
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + daysToAdd);
   return endDate;
@@ -96,14 +120,26 @@ function buildDurationFromDates(startDate: string, endDate: string): string {
   return `${diffDays} jours`;
 }
 
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 export default function PlanningPage() {
   const { chantiers, updateChantier } = useChantiers();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedChantier, setSelectedChantier] = useState<Chantier | null>(null);
   const [selectedDayForAssign, setSelectedDayForAssign] = useState<Date | null>(null);
   const [assignChantierId, setAssignChantierId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [editDateDebut, setEditDateDebut] = useState('');
   const [editDateFin, setEditDateFin] = useState('');
+  const [editDureeInput, setEditDureeInput] = useState('');
   const [editStatut, setEditStatut] = useState<Chantier['statut']>('planifié');
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -111,10 +147,8 @@ export default function PlanningPage() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   
-  const days = useMemo(() => getDaysInMonth(year, month), [year, month]);
-  
   // Fonction pour obtenir les chantiers d'un jour donné
-  const getChantiersForDay = (date: Date) => {
+  function getChantiersForDay(date: Date) {
     return chantiers.filter(chantier => {
       const startDate = new Date(chantier.dateDebut);
       const endDate = calculateEndDate(chantier.dateDebut, chantier.duree);
@@ -132,7 +166,25 @@ export default function PlanningPage() {
       
       return dayStart >= chantierStart && dayStart <= chantierEnd;
     });
-  };
+  }
+
+  const days = useMemo(() => getDaysInMonth(year, month), [year, month]);
+  const selectedDayChantiers = useMemo(() => {
+    if (!selectedDayForAssign) return [];
+    return getChantiersForDay(selectedDayForAssign);
+  }, [selectedDayForAssign, chantiers]);
+
+  const filteredAssignableChantiers = useMemo(() => {
+    const search = normalizeSearchText(searchTerm);
+
+    return chantiers.filter((chantier) => {
+      if (!search) return true;
+      return (
+        normalizeSearchText(chantier.nom).includes(search) ||
+        normalizeSearchText(chantier.clientName).includes(search)
+      );
+    });
+  }, [chantiers, searchTerm]);
   
   const monthNames = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -160,6 +212,7 @@ export default function PlanningPage() {
     const endDate = calculateEndDate(selectedChantier.dateDebut, selectedChantier.duree);
     setEditDateDebut(formatDateForInput(startDate));
     setEditDateFin(formatDateForInput(endDate));
+    setEditDureeInput(selectedChantier.duree || '1 jour');
     setEditStatut(selectedChantier.statut);
   }, [selectedChantier]);
 
@@ -169,7 +222,8 @@ export default function PlanningPage() {
       return;
     }
 
-    const nextDuree = buildDurationFromDates(editDateDebut, editDateFin);
+    const parsed = parseDurationInput(editDureeInput);
+    const nextDuree = parsed?.label ?? buildDurationFromDates(editDateDebut, editDateFin);
     updateChantier(selectedChantier.id, {
       dateDebut: editDateDebut,
       duree: nextDuree,
@@ -189,13 +243,28 @@ export default function PlanningPage() {
     setSelectedChantier(null);
   };
 
-  const handleAssignDayToChantier = () => {
+  const handleAssignDayToChantier = async () => {
     if (!selectedDayForAssign || !assignChantierId) return;
-    updateChantier(assignChantierId, {
+    const { error } = await updateChantier(assignChantierId, {
       dateDebut: formatDateForInput(selectedDayForAssign),
     });
+
+    if (error) {
+      toast({
+        title: "Erreur lors de l'enregistrement",
+        description: error.message,
+      });
+      return;
+    }
+
+    toast({
+      title: "Modification enregistrée",
+      description: "Le chantier a bien été positionné sur ce jour.",
+    });
+
     setSelectedDayForAssign(null);
     setAssignChantierId('');
+    setSearchTerm('');
   };
   
   return (
@@ -442,7 +511,16 @@ export default function PlanningPage() {
                     ref={startDateInputRef}
                     type="date"
                     value={editDateDebut}
-                    onChange={(e) => setEditDateDebut(e.target.value)}
+                    onChange={(e) => {
+                      const nextStart = e.target.value;
+                      setEditDateDebut(nextStart);
+                      const parsed = parseDurationInput(editDureeInput);
+                      if (nextStart && parsed) {
+                        const nextEnd = new Date(nextStart);
+                        nextEnd.setDate(nextEnd.getDate() + parsed.days);
+                        setEditDateFin(formatDateForInput(nextEnd));
+                      }
+                    }}
                     className="bg-black/20 border-white/10 text-white"
                   />
                 </div>
@@ -462,14 +540,37 @@ export default function PlanningPage() {
                     ref={endDateInputRef}
                     type="date"
                     value={editDateFin}
-                    onChange={(e) => setEditDateFin(e.target.value)}
+                    onChange={(e) => {
+                      const nextEnd = e.target.value;
+                      setEditDateFin(nextEnd);
+                      if (editDateDebut && nextEnd && new Date(nextEnd) >= new Date(editDateDebut)) {
+                        setEditDureeInput(buildDurationFromDates(editDateDebut, nextEnd));
+                      }
+                    }}
                     className="bg-black/20 border-white/10 text-white"
                   />
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-black/20 border border-white/10">
                 <p className="text-xs text-white/60 mb-1">Durée</p>
-                <p className="text-sm font-medium">{buildDurationFromDates(editDateDebut, editDateFin)}</p>
+                <Input
+                  value={editDureeInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setEditDureeInput(value);
+                    const parsed = parseDurationInput(value);
+                    if (editDateDebut && parsed) {
+                      const nextEnd = new Date(editDateDebut);
+                      nextEnd.setDate(nextEnd.getDate() + parsed.days);
+                      setEditDateFin(formatDateForInput(nextEnd));
+                    }
+                  }}
+                  placeholder="Ex: 2j, 2s, 2m"
+                  className="bg-black/20 border-white/10 text-white"
+                />
+                <p className="text-xs text-white/60 mt-2">
+                  Exemples : 2j = 2 jours, 2s = 2 semaines, 2m = 2 mois
+                </p>
               </div>
               <div className="p-3 rounded-lg bg-black/20 border border-white/10">
                 <p className="text-xs text-white/60 mb-1">Statut</p>
@@ -501,34 +602,79 @@ export default function PlanningPage() {
       <Dialog open={!!selectedDayForAssign} onOpenChange={(open) => !open && setSelectedDayForAssign(null)}>
         <DialogContent className="bg-black/30 backdrop-blur-xl border border-white/10 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white">Associer un chantier</DialogTitle>
+            <DialogTitle className="text-white">Chantiers du jour</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-white/70">
               Jour sélectionné : {selectedDayForAssign ? selectedDayForAssign.toLocaleDateString('fr-FR') : ''}
             </p>
+            <div className="p-3 rounded-lg bg-black/20 border border-white/10">
+              <p className="text-xs text-white/60 mb-2">Déjà planifiés ce jour</p>
+              {selectedDayChantiers.length === 0 ? (
+                <p className="text-sm text-white/70">Aucun chantier prévu.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedDayChantiers.map((chantier) => (
+                    <button
+                      key={chantier.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDayForAssign(null);
+                        setAssignChantierId('');
+                        setSearchTerm('');
+                        setLocation(`/dashboard/projects?chantierId=${chantier.id}`);
+                      }}
+                      className="w-full text-left text-sm p-2 rounded bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                    >
+                      <p className="font-medium text-white">{chantier.nom}</p>
+                      <p className="text-xs text-white/70">{chantier.clientName} - {chantier.statut}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div>
-              <p className="text-xs text-white/60 mb-1">Choisir un chantier</p>
-              <select
+              <p className="text-xs text-white/60 mb-1">Ajouter un chantier à ce jour</p>
+              <Select
                 value={assignChantierId}
-                onChange={(e) => setAssignChantierId(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border bg-black/20 border-white/10 text-white"
+                onValueChange={(value) => setAssignChantierId(value)}
               >
-                <option value="">Sélectionner un chantier</option>
-                {chantiers.map((chantier) => (
-                  <option key={chantier.id} value={chantier.id}>
-                    {chantier.nom} - {chantier.clientName}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-black/20 border-white/10 text-white">
+                  <SelectValue placeholder="Sélectionner un chantier" />
+                </SelectTrigger>
+                <SelectContent className="bg-black/20 backdrop-blur-xl border-white/10">
+                  <div className="p-2">
+                    <Input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      placeholder="Rechercher un chantier..."
+                      className="bg-black/30 border-white/10 text-white placeholder:text-white/50 h-9"
+                    />
+                  </div>
+                  {filteredAssignableChantiers.length > 0 ? (
+                    filteredAssignableChantiers.map((chantier) => (
+                      <SelectItem key={chantier.id} value={chantier.id} className="text-white">
+                        {chantier.nom} - {chantier.clientName}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-white/60">Aucun chantier trouvé</div>
+                  )}
+                </SelectContent>
+              </Select>
+              {filteredAssignableChantiers.length === 0 && (
+                <p className="text-xs text-white/60 mt-2">Aucun chantier disponible pour ce filtre.</p>
+              )}
             </div>
             <div className="flex justify-end">
               <Button
+                type="button"
                 onClick={handleAssignDayToChantier}
                 disabled={!assignChantierId || !selectedDayForAssign}
                 className="bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30"
               >
-                Associer au jour
+                Enregistrer ce chantier ce jour-là
               </Button>
             </div>
           </div>

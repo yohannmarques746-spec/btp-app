@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { supabase, getCurrentUserId } from "@/lib/supabase";
 
 export interface ChantierRecord {
@@ -73,9 +74,14 @@ function objectArray<T extends Record<string, unknown>>(input: unknown): T[] {
 
 function missingColumnFromErrorMessage(message?: string | null): string | null {
   if (!message) return null;
-  const match = message.match(/Could not find the '([^']+)' column/);
-  return match?.[1] ?? null;
+  const pgrstMatch = message.match(/Could not find the '([^']+)' column/);
+  if (pgrstMatch?.[1]) return pgrstMatch[1];
+  const pgMatch = message.match(/column\s+chantiers\.([a-zA-Z0-9_]+)\s+does not exist/i);
+  if (pgMatch?.[1]) return pgMatch[1];
+  return null;
 }
+
+const unsupportedChantiersColumns = new Set<string>();
 
 async function insertOrUpdateWithSchemaFallback(
   id: string | undefined,
@@ -84,30 +90,38 @@ async function insertOrUpdateWithSchemaFallback(
   const execute = (body: Record<string, unknown>) =>
     id ? supabase.from("chantiers").update(body).eq("id", id) : supabase.from("chantiers").insert(body);
 
-  const first = await execute(payload);
-  if (!first.error || first.error.code !== "PGRST204") return { error: first.error };
+  let activePayload = { ...payload };
+  for (const col of Array.from(unsupportedChantiersColumns)) {
+    if (col in activePayload) delete activePayload[col];
+  }
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const result = await execute(activePayload);
+    const code = result.error?.code ?? null;
+    if (!result.error || (code !== "PGRST204" && code !== "42703")) return { error: result.error };
 
-  const missingColumn = missingColumnFromErrorMessage(first.error.message);
-  if (!missingColumn || !(missingColumn in payload)) return { error: first.error };
+    const missingColumn = missingColumnFromErrorMessage(result.error.message);
+    if (!missingColumn || !(missingColumn in activePayload)) return { error: result.error };
 
-  const retryPayload = { ...payload };
-  delete retryPayload[missingColumn];
-  // #region agent log
-  fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'post-fix',hypothesisId:'H5',location:'useChantiers.ts:86',message:'retry insert/update without missing column',data:{id:id??null,missingColumn,retryKeys:Object.keys(retryPayload)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-  const retry = await execute(retryPayload);
-  return { error: retry.error };
+    unsupportedChantiersColumns.add(missingColumn);
+    delete activePayload[missingColumn];
+  }
+
+  return { error: { code: "PGRST204", message: "Schema fallback exhausted after multiple missing columns." } };
 }
 
 function mapChantierRow(row: ChantierRow): ChantierRecord {
   const images = Array.isArray(row.images) ? row.images.filter((v): v is string => typeof v === "string") : [];
+  const joined =
+    [row.clients?.[0]?.nom, row.clients?.[0]?.prenom].filter(Boolean).join(" ").trim() || "";
+  const clientId = row.client_id ?? "";
+  const clientName = !clientId ? "Client non défini" : joined;
   return {
     id: row.id,
     nom: row.nom,
-    clientId: row.client_id ?? "",
-    clientName: row.clients?.[0]?.nom || row.clients?.[0]?.prenom || "Client inconnu",
+    clientId,
+    clientName,
     dateDebut: row.date_debut ?? "",
-    duree: row.duree ?? "1 semaine",
+    duree: row.duree ?? "",
     images,
     statut: uiStatusFromDb(row.statut),
     archived: Boolean(row.archived),
@@ -128,20 +142,45 @@ export function useChantiers() {
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const fullSelect = "id, nom, client_id, date_debut, duree, images, statut, archived, journal_entries, incidents_problemes, materiaux, documents_uploades, devis_associes, factures_associees, clients(nom, prenom)";
+    const fullColumns = [
+      "id",
+      "nom",
+      "client_id",
+      "date_debut",
+      "duree",
+      "images",
+      "statut",
+      "archived",
+      "journal_entries",
+      "incidents_problemes",
+      "materiaux",
+      "documents_uploades",
+      "devis_associes",
+      "factures_associees",
+    ].filter((col) => !unsupportedChantiersColumns.has(col));
+    const fullSelect = `${fullColumns.join(", ")}, clients(nom, prenom)`;
     const legacySelect = "id, nom, client_id, date_debut, duree, images, statut, clients(nom, prenom)";
-    let { data, error: fetchError } = await supabase
-      .from("chantiers")
-      .select(fullSelect)
-      .order("created_at", { ascending: false });
+    const bareSelect = "id, nom, client_id, date_debut, duree, images, statut";
 
-    if (fetchError?.code === "PGRST204") {
-      // #region agent log
-      fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'post-fix',hypothesisId:'H6',location:'useChantiers.ts:122',message:'refresh fallback to legacy select',data:{code:fetchError.code,message:fetchError.message},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+    let rows: ChantierRow[] | null = null;
+    let fetchError: PostgrestError | null = null;
+
+    const primary = await supabase.from("chantiers").select(fullSelect).order("created_at", { ascending: false });
+    rows = primary.data as ChantierRow[] | null;
+    fetchError = primary.error;
+
+    if (fetchError?.code === "PGRST204" || fetchError?.code === "42703") {
+      const missingColumn = missingColumnFromErrorMessage(fetchError.message);
+      if (missingColumn) unsupportedChantiersColumns.add(missingColumn);
       const fallback = await supabase.from("chantiers").select(legacySelect).order("created_at", { ascending: false });
-      data = fallback.data;
+      rows = fallback.data as ChantierRow[] | null;
       fetchError = fallback.error;
+    }
+
+    if (fetchError) {
+      const bareFallback = await supabase.from("chantiers").select(bareSelect).order("created_at", { ascending: false });
+      rows = bareFallback.data as ChantierRow[] | null;
+      fetchError = bareFallback.error;
     }
 
     if (fetchError) {
@@ -151,7 +190,7 @@ export function useChantiers() {
       return;
     }
 
-    setChantiers((data ?? []).map((row) => mapChantierRow(row as ChantierRow)));
+    setChantiers((rows ?? []).map((row) => mapChantierRow(row)));
     setLoading(false);
   }, []);
 
@@ -186,9 +225,6 @@ export function useChantiers() {
       devis_associes: data.devisAssocies ?? [],
       factures_associees: data.facturesAssociees ?? [],
     };
-    // #region agent log
-    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'pre-fix',hypothesisId:'H1',location:'useChantiers.ts:150',message:'saveChantier payload keys',data:{id: id ?? null, keys:Object.keys(payload), hasArchived:Object.prototype.hasOwnProperty.call(payload,'archived')},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if (!id) {
       const userId = await getCurrentUserId();
@@ -203,16 +239,10 @@ export function useChantiers() {
     const result = await insertOrUpdateWithSchemaFallback(id, payload);
 
     if (result.error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'pre-fix',hypothesisId:'H2',location:'useChantiers.ts:169',message:'saveChantier supabase error',data:{code:result.error.code,message:result.error.message,hint:result.error.hint},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       console.error("useChantiers.saveChantier", result.error);
-      setError(result.error.message);
+      setError(result.error.message ?? "Erreur inconnue");
       return { error: result.error };
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4f6aac'},body:JSON.stringify({sessionId:'4f6aac',runId:'post-fix',hypothesisId:'H7',location:'useChantiers.ts:208',message:'saveChantier success',data:{id:id??null,nom:data.nom},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     await refresh();
     return { error: null };
   }, [refresh]);
@@ -233,11 +263,11 @@ export function useChantiers() {
       devis_associes: updates.devisAssocies,
       factures_associees: updates.facturesAssociees,
     };
-    const { error: updateError } = await supabase.from("chantiers").update(payload).eq("id", id);
-    if (updateError) {
-      console.error("useChantiers.updateChantier", updateError);
-      setError(updateError.message);
-      return { error: updateError };
+    const result = await insertOrUpdateWithSchemaFallback(id, payload);
+    if (result.error) {
+      console.error("useChantiers.updateChantier", result.error);
+      setError(result.error.message ?? "Erreur de mise à jour");
+      return { error: result.error };
     }
     await refresh();
     return { error: null };

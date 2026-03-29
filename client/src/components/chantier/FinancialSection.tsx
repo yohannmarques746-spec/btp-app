@@ -15,10 +15,10 @@ interface FinancialSectionProps {
 }
 
 interface FinancialFormData {
-  montantDevisHT: number;
+  montantDevisHT: string;
   tvaPercent: number;
-  montantFacture: number;
-  acomptesRecus: number;
+  montantFacture: string;
+  acomptesRecus: string;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -29,65 +29,82 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+function parseAmount(raw: string): number {
+  const t = raw.trim().replace(",", ".");
+  if (t === "") return 0;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function amountFieldFromData(data: FinancialData | undefined, key: keyof Pick<FinancialData, "montantDevisHT" | "montantFacture" | "acomptesRecus">): string {
+  if (!data) return "";
+  const v = data[key];
+  return v === undefined ? "" : String(v);
+}
+
 function buildFinancial(values: FinancialFormData): LigneFinanciere {
-  const ttc = values.montantDevisHT * (1 + values.tvaPercent / 100);
-  const reste = ttc - values.montantFacture - values.acomptesRecus;
-  const avancement = ttc > 0 ? (values.montantFacture / ttc) * 100 : 0;
+  const montantDevisHT = parseAmount(values.montantDevisHT);
+  const montantFacture = parseAmount(values.montantFacture);
+  const acomptesRecus = parseAmount(values.acomptesRecus);
+  const tvaPercent = Number.isFinite(values.tvaPercent) ? values.tvaPercent : 8;
+  const ttc = montantDevisHT * (1 + tvaPercent / 100);
+  const reste = ttc - montantFacture - acomptesRecus;
+  const avancement = ttc > 0 ? (montantFacture / ttc) * 100 : 0;
   return {
-    montantDevisHT: values.montantDevisHT,
-    tvaPercent: values.tvaPercent,
+    montantDevisHT,
+    tvaPercent,
     montantTTC: round1(ttc),
-    montantFacture: values.montantFacture,
-    acomptesRecus: values.acomptesRecus,
+    montantFacture,
+    acomptesRecus,
     resteAFacturer: round1(reste),
     avancementFinancierPercent: clamp(round1(avancement), 0, 100),
   };
 }
 
-function toNumber(value: unknown): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+function formDefaults(data?: FinancialData): FinancialFormData {
+  return {
+    montantDevisHT: amountFieldFromData(data, "montantDevisHT"),
+    tvaPercent: data?.tvaPercent ?? 8,
+    montantFacture: amountFieldFromData(data, "montantFacture"),
+    acomptesRecus: amountFieldFromData(data, "acomptesRecus"),
+  };
 }
 
 export function FinancialSection({ data, onSave }: FinancialSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const form = useForm<FinancialFormData>({
-    defaultValues: {
-      montantDevisHT: data?.montantDevisHT ?? 0,
-      tvaPercent: data?.tvaPercent ?? 8,
-      montantFacture: data?.montantFacture ?? 0,
-      acomptesRecus: data?.acomptesRecus ?? 0,
-    },
+    defaultValues: formDefaults(data),
   });
 
   useEffect(() => {
-    form.reset({
-      montantDevisHT: data?.montantDevisHT ?? 0,
-      tvaPercent: data?.tvaPercent ?? 8,
-      montantFacture: data?.montantFacture ?? 0,
-      acomptesRecus: data?.acomptesRecus ?? 0,
-    });
+    form.reset(formDefaults(data));
   }, [data, form]);
 
   const watched = form.watch(["montantDevisHT", "tvaPercent", "montantFacture", "acomptesRecus"]);
 
+  const devisHtRaw = watched[0]?.trim() ?? "";
+  const hasDevisHt = devisHtRaw !== "" && Number.isFinite(parseAmount(devisHtRaw));
+
   const computed = useMemo(
     () =>
       buildFinancial({
-        montantDevisHT: toNumber(watched[0]),
-        tvaPercent: toNumber(watched[1]),
-        montantFacture: toNumber(watched[2]),
-        acomptesRecus: toNumber(watched[3]),
+        montantDevisHT: watched[0] ?? "",
+        tvaPercent: watched[1] ?? 8,
+        montantFacture: watched[2] ?? "",
+        acomptesRecus: watched[3] ?? "",
       }),
     [watched],
   );
 
-  const progressColor =
-    computed.avancementFinancierPercent >= 80
+  const progressColor = !hasDevisHt
+    ? "bg-white/30"
+    : computed.avancementFinancierPercent >= 80
       ? "bg-green-500"
       : computed.avancementFinancierPercent >= 40
         ? "bg-orange-400"
         : "bg-red-500";
+
+  const fmtChf = (n: number) => `${n.toLocaleString("fr-CH")} CHF`;
 
   const handleSave = form.handleSubmit((values) => {
     onSave(buildFinancial(values));
@@ -95,7 +112,7 @@ export function FinancialSection({ data, onSave }: FinancialSectionProps) {
   });
 
   const handleCancel = () => {
-    form.reset();
+    form.reset(formDefaults(data));
     setIsEditing(false);
   };
 
@@ -129,9 +146,15 @@ export function FinancialSection({ data, onSave }: FinancialSectionProps) {
         <div className="space-y-2">
           <Label className="text-white/70">Montant devis HT</Label>
           {isEditing ? (
-            <Input type="number" step="0.1" {...form.register("montantDevisHT", { valueAsNumber: true })} className="bg-black/20 border-white/20 text-white" />
+            <Input
+              type="text"
+              inputMode="decimal"
+              {...form.register("montantDevisHT")}
+              className="bg-black/20 border-white/20 text-white"
+              placeholder=""
+            />
           ) : (
-            <p className="text-white/90">{computed.montantDevisHT.toLocaleString("fr-CH")} CHF</p>
+            <p className="text-white/90">{hasDevisHt ? fmtChf(computed.montantDevisHT) : "—"}</p>
           )}
         </div>
         <div className="space-y-2">
@@ -153,17 +176,17 @@ export function FinancialSection({ data, onSave }: FinancialSectionProps) {
         <div className="space-y-2">
           <Label className="text-white/70">Montant facture a ce jour</Label>
           {isEditing ? (
-            <Input type="number" step="0.1" {...form.register("montantFacture", { valueAsNumber: true })} className="bg-black/20 border-white/20 text-white" />
+            <Input type="text" inputMode="decimal" {...form.register("montantFacture")} className="bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90">{computed.montantFacture.toLocaleString("fr-CH")} CHF</p>
+            <p className="text-white/90">{!hasDevisHt ? "—" : fmtChf(computed.montantFacture)}</p>
           )}
         </div>
         <div className="space-y-2">
           <Label className="text-white/70">Acomptes recus</Label>
           {isEditing ? (
-            <Input type="number" step="0.1" {...form.register("acomptesRecus", { valueAsNumber: true })} className="bg-black/20 border-white/20 text-white" />
+            <Input type="text" inputMode="decimal" {...form.register("acomptesRecus")} className="bg-black/20 border-white/20 text-white" />
           ) : (
-            <p className="text-white/90">{computed.acomptesRecus.toLocaleString("fr-CH")} CHF</p>
+            <p className="text-white/90">{!hasDevisHt ? "—" : fmtChf(computed.acomptesRecus)}</p>
           )}
         </div>
       </div>
@@ -171,15 +194,15 @@ export function FinancialSection({ data, onSave }: FinancialSectionProps) {
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="rounded-lg border border-white/10 bg-black/10 p-3">
           <p className="text-sm text-white/70">Montant TTC</p>
-          <p className="text-white font-semibold">{computed.montantTTC.toLocaleString("fr-CH")} CHF</p>
+          <p className="text-white font-semibold">{!hasDevisHt ? "—" : fmtChf(computed.montantTTC)}</p>
         </div>
         <div className="rounded-lg border border-white/10 bg-black/10 p-3">
           <p className="text-sm text-white/70">Reste a facturer</p>
-          <p className="text-white font-semibold">{computed.resteAFacturer.toLocaleString("fr-CH")} CHF</p>
+          <p className="text-white font-semibold">{!hasDevisHt ? "—" : fmtChf(computed.resteAFacturer)}</p>
         </div>
         <div className="rounded-lg border border-white/10 bg-black/10 p-3">
           <p className="text-sm text-white/70">Avancement financier</p>
-          <p className="text-white font-semibold">{computed.avancementFinancierPercent.toFixed(1)}%</p>
+          <p className="text-white font-semibold">{!hasDevisHt ? "—" : `${computed.avancementFinancierPercent.toFixed(1)}%`}</p>
         </div>
       </div>
 
@@ -187,7 +210,7 @@ export function FinancialSection({ data, onSave }: FinancialSectionProps) {
         <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
           <div
             className={`h-full transition-all ${progressColor}`}
-            style={{ width: `${computed.avancementFinancierPercent}%` }}
+            style={{ width: !hasDevisHt ? "0%" : `${computed.avancementFinancierPercent}%` }}
           />
         </div>
       </div>

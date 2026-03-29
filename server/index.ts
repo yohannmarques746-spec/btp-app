@@ -65,9 +65,8 @@ app.use((req, res, next) => {
   // Ensure port is 5000 if not explicitly set or if invalid
   const finalPort = (isNaN(port) || port <= 0) ? 5000 : port;
 
-  // On Windows, use localhost instead of 0.0.0.0 to avoid ENOTSUP errors
-  // On Linux, use 0.0.0.0 for network access
-  const host = process.platform === "win32" ? "127.0.0.1" : "0.0.0.0";
+  // Use localhost to avoid browser/HMR ping issues with 0.0.0.0
+  const host = "127.0.0.1";
 
   // Build listen options
   const listenOptions: any = {

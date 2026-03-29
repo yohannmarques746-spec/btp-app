@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { PDFDownloadLink, pdf } from "@react-pdf/renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useDevis } from "@/hooks/useDevis";
 import { EMPTY_PROFIL_ENTREPRISE, useProfilEntreprise } from "@/hooks/useProfilEntreprise";
-import { calculateDateExpiration, calculateLigneTotalHT, calculateTotaux, computeDevisStatus } from "@/utils/devisCalculs";
+import { DEFAULT_UNITE_PRESTATION, UNITE_OPTION_GROUPS, type UnitePrestationCode } from "@/constants/unitesPrestation";
+import { calculateDateExpiration, calculateLigneTotalHT, calculateTotaux, computeDevisStatus, lignesAvecTotalHTCalcule } from "@/utils/devisCalculs";
 import { formatCHF, sanitizeFileNamePart } from "@/utils/chf";
 import { IDE_REGEX, validateDevis } from "@/utils/devisValidation";
-import type { Devis, Emetteur, LignePrestation, StatutDevis, TauxTVA, UnitePrestation } from "@/types/devis";
-import { DEVIS_STATUS_OPTIONS, TVA_OPTIONS, UNITE_OPTIONS } from "@/types/devis";
+import type { Devis, Emetteur, LignePrestation, StatutDevis, TauxTVA } from "@/types/devis";
+import { DEVIS_STATUS_OPTIONS, TVA_OPTIONS } from "@/types/devis";
 import { DevisPreview } from "@/components/devis/DevisPreview";
 import { DevisPdfDocument } from "@/components/devis/DevisPdfDocument";
 import { useChantiers } from "@/context/ChantiersContext";
@@ -65,7 +66,7 @@ function createLigne(): LignePrestation {
     id: generatedId,
     description: "",
     quantite: 1,
-    unite: "heure",
+    unite: DEFAULT_UNITE_PRESTATION,
     prixUnitaireHT: 0,
     tauxTVA: 8.1,
     totalHT: 0,
@@ -126,14 +127,34 @@ export default function QuotesPage() {
   const { fields, append, remove } = useFieldArray({ control: devisForm.control, name: "lignes" });
 
   const watched = devisForm.watch();
+  const lignesWatch = useWatch({ control: devisForm.control, name: "lignes", defaultValue: [] as LignePrestation[] });
 
   useEffect(() => {
     profileForm.reset(profile);
+  }, [profile, profileForm]);
+
+  /** Ne pas réinitialiser tout le devis pendant que l'utilisateur est sur l'écran de saisie (client, lignes, etc.). */
+  useEffect(() => {
+    if (activeView === "new") return;
+    let cancelled = false;
     void (async () => {
       const numero = await getNextNumeroDevis();
+      if (cancelled) return;
       devisForm.reset(createDefaults(profile, numero));
     })();
-  }, [devisForm, getNextNumeroDevis, profile, profileForm]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, devisForm, getNextNumeroDevis, profile]);
+
+  /** Si le profil arrive après l'ouverture de « Nouveau devis », préremplir l'émetteur vide. */
+  useEffect(() => {
+    if (activeView !== "new") return;
+    const nomEmetteur = devisForm.getValues("emetteur.nom");
+    if (!nomEmetteur?.trim() && profile.nom?.trim()) {
+      devisForm.setValue("emetteur", { ...profile });
+    }
+  }, [activeView, devisForm, profile]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -156,6 +177,8 @@ export default function QuotesPage() {
     }
   }, [watched.dateEmission, watched.dureeValidite, devisForm]);
 
+  const lignesPourTotaux = useMemo(() => lignesAvecTotalHTCalcule(lignesWatch ?? []), [lignesWatch]);
+
   useEffect(() => {
     const lignes = devisForm.getValues("lignes");
     lignes.forEach((ligne, index) => {
@@ -164,9 +187,9 @@ export default function QuotesPage() {
         devisForm.setValue(`lignes.${index}.totalHT`, total);
       }
     });
-  }, [watched.lignes, devisForm]);
+  }, [lignesWatch, devisForm]);
 
-  const totals = useMemo(() => calculateTotaux(watched.lignes || []), [watched.lignes]);
+  const totals = useMemo(() => calculateTotaux(lignesPourTotaux), [lignesPourTotaux]);
   const filteredExistingClients = useMemo(
     () =>
       clients.filter((client) =>
@@ -186,7 +209,7 @@ export default function QuotesPage() {
       objet: watched.objet || "",
       emetteur: watched.emetteur || EMPTY_PROFIL_ENTREPRISE,
       client: watched.client || { nom: "", adresse: "", npa: "", ville: "" },
-      lignes: watched.lignes || [],
+      lignes: lignesPourTotaux,
       sousTotalHT: totals.sousTotalHT,
       montantTVA: watched.emetteur?.nonAssujettiTVA ? 0 : totals.montantTVA,
       totalTTC: watched.emetteur?.nonAssujettiTVA ? totals.sousTotalHT : totals.totalTTC,
@@ -199,14 +222,15 @@ export default function QuotesPage() {
       createdAt: now,
       updatedAt: now,
     };
-  }, [editingDevisId, watched, totals]);
+  }, [editingDevisId, watched, totals, lignesPourTotaux]);
 
-  const startNewDevis = async () => {
-    const numero = await getNextNumeroDevis();
-    const defaults = createDefaults(profile, numero);
-    devisForm.reset(defaults);
+  const startNewDevis = () => {
     setEditingDevisId(null);
     setActiveView("new");
+    void (async () => {
+      const numero = await getNextNumeroDevis();
+      devisForm.reset(createDefaults(profile, numero));
+    })();
   };
 
   const saveDevisFromForm = async () => {
@@ -250,7 +274,7 @@ export default function QuotesPage() {
       objet: devis.objet,
       emetteur: devis.emetteur,
       client: devis.client,
-      lignes: devis.lignes,
+      lignes: lignesAvecTotalHTCalcule(devis.lignes),
       conditionsPaiement: devis.conditionsPaiement,
       delaiExecution: devis.delaiExecution || "",
       notes: devis.notes || "",
@@ -326,6 +350,9 @@ export default function QuotesPage() {
     devisForm.setValue("client.nom", existing.name);
     devisForm.setValue("client.email", existing.email || "");
     devisForm.setValue("client.telephone", existing.phone || "");
+    devisForm.setValue("client.adresse", existing.adresse ?? "");
+    devisForm.setValue("client.npa", existing.npa ?? "");
+    devisForm.setValue("client.ville", existing.localite ?? "");
     setClientSearch(existing.name);
   };
 
@@ -349,6 +376,9 @@ export default function QuotesPage() {
       name: current.nom.trim(),
       email: current.email?.trim() || "",
       phone: current.telephone?.trim() || "",
+      adresse: current.adresse?.trim() || "",
+      npa: current.npa?.trim() || "",
+      localite: current.ville?.trim() || "",
     });
     setClientSearch(current.nom.trim());
     toast({ title: "Client ajoute", description: "Le client est maintenant disponible dans la recherche." });
@@ -546,23 +576,71 @@ export default function QuotesPage() {
                       <p className="font-semibold">Lignes de prestations</p>
                       <Button type="button" size="sm" onClick={() => append(createLigne())}><Plus className="mr-1 h-4 w-4" /> Ajouter une ligne</Button>
                     </div>
-                    {fields.map((field, index) => (
-                      <div key={field.id} className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-black/20 p-3 md:grid-cols-12">
-                        <Input className="md:col-span-4 bg-black/20 border-white/10" placeholder="Description" {...devisForm.register(`lignes.${index}.description` as const, { required: true })} />
-                        <Input className="md:col-span-1 bg-black/20 border-white/10" type="number" min="0.01" step="0.01" {...devisForm.register(`lignes.${index}.quantite` as const, { valueAsNumber: true, min: 0.01 })} />
-                        <Select value={devisForm.watch(`lignes.${index}.unite`)} onValueChange={(v) => devisForm.setValue(`lignes.${index}.unite`, v as UnitePrestation)}>
-                          <SelectTrigger className="md:col-span-2 bg-black/20 border-white/10"><SelectValue /></SelectTrigger>
-                          <SelectContent>{UNITE_OPTIONS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <Input className="md:col-span-2 bg-black/20 border-white/10" type="number" min="0.01" step="0.01" {...devisForm.register(`lignes.${index}.prixUnitaireHT` as const, { valueAsNumber: true, min: 0.01 })} />
-                        <Select value={String(devisForm.watch(`lignes.${index}.tauxTVA`))} onValueChange={(v) => devisForm.setValue(`lignes.${index}.tauxTVA`, Number(v) as TauxTVA)}>
-                          <SelectTrigger className="md:col-span-1 bg-black/20 border-white/10"><SelectValue /></SelectTrigger>
-                          <SelectContent>{TVA_OPTIONS.map((t) => <SelectItem key={String(t)} value={String(t)}>{t}%</SelectItem>)}</SelectContent>
-                        </Select>
-                        <Input className="md:col-span-1 bg-black/30 border-white/10" value={formatCHF(Number(devisForm.watch(`lignes.${index}.totalHT`) || 0))} readOnly />
-                        <Button type="button" variant="destructive" size="icon" className="md:col-span-1" onClick={() => remove(index)} disabled={fields.length === 1}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    ))}
+                    <div className="hidden md:grid md:grid-cols-12 md:gap-3 md:px-3 md:pb-1 text-xs font-medium uppercase tracking-wide text-white/60">
+                      <span className="md:col-span-4">Prestation</span>
+                      <span className="md:col-span-1">Qté</span>
+                      <span className="md:col-span-2">Unité</span>
+                      <span className="md:col-span-2">PU HT</span>
+                      <span className="md:col-span-1">TVA</span>
+                      <span className="md:col-span-1">Total HT</span>
+                      <span className="md:col-span-1" aria-hidden="true" />
+                    </div>
+                    {fields.map((field, index) => {
+                      const ligneCourante = watched.lignes?.[index];
+                      const totalLigneHT = ligneCourante ? calculateLigneTotalHT(ligneCourante) : 0;
+                      return (
+                        <div key={field.id} className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-black/20 p-3 md:grid-cols-12 md:items-end">
+                          <div className="md:col-span-4 space-y-1">
+                            <Label className="text-white/70 text-xs md:sr-only">Prestation (description)</Label>
+                            <Input className="bg-black/20 border-white/10" placeholder="Ex. : Peinture murs salon" {...devisForm.register(`lignes.${index}.description` as const, { required: true })} />
+                          </div>
+                          <div className="md:col-span-1 space-y-1">
+                            <Label className="text-white/70 text-xs md:sr-only">Quantité</Label>
+                            <Input className="bg-black/20 border-white/10" type="number" min="0.01" step="0.01" {...devisForm.register(`lignes.${index}.quantite` as const, { valueAsNumber: true, min: 0.01 })} />
+                          </div>
+                          <div className="md:col-span-2 space-y-1">
+                            <Label className="text-white/70 text-xs md:sr-only">Unité</Label>
+                            <select
+                              className="flex h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              value={devisForm.watch(`lignes.${index}.unite`)}
+                              onChange={(e) =>
+                                devisForm.setValue(`lignes.${index}.unite`, e.target.value as UnitePrestationCode)
+                              }
+                            >
+                              {UNITE_OPTION_GROUPS.map((group) => (
+                                <optgroup key={group.label} label={group.label}>
+                                  {group.options.map((opt) => (
+                                    <option key={opt.code} value={opt.code}>
+                                      {opt.code} — {opt.libelle}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="md:col-span-2 space-y-1">
+                            <Label className="text-white/70 text-xs md:sr-only">Prix unitaire HT</Label>
+                            <Input className="bg-black/20 border-white/10" type="number" min="0.01" step="0.01" {...devisForm.register(`lignes.${index}.prixUnitaireHT` as const, { valueAsNumber: true, min: 0.01 })} />
+                          </div>
+                          <div className="md:col-span-1 space-y-1">
+                            <Label className="text-white/70 text-xs md:sr-only">TVA</Label>
+                            <Select value={String(devisForm.watch(`lignes.${index}.tauxTVA`))} onValueChange={(v) => devisForm.setValue(`lignes.${index}.tauxTVA`, Number(v) as TauxTVA)}>
+                              <SelectTrigger className="bg-black/20 border-white/10"><SelectValue /></SelectTrigger>
+                              <SelectContent>{TVA_OPTIONS.map((t) => <SelectItem key={String(t)} value={String(t)}>{t}%</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="md:col-span-1 space-y-1">
+                            <Label className="text-white/70 text-xs md:sr-only">Total ligne HT (Qté × PU HT)</Label>
+                            <Input className="bg-black/30 border-white/10" value={formatCHF(totalLigneHT)} readOnly tabIndex={-1} aria-readonly="true" />
+                          </div>
+                          <div className="flex md:col-span-1 md:justify-end">
+                            <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} aria-label="Supprimer la ligne">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div className="rounded-lg border border-white/10 p-4">

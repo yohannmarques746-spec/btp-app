@@ -8,7 +8,18 @@ function toISODate(date: Date): string {
 }
 
 export function calculateLigneTotalHT(ligne: Pick<LignePrestation, "quantite" | "prixUnitaireHT">): number {
-  return Number((ligne.quantite * ligne.prixUnitaireHT).toFixed(2));
+  const q = Number(ligne.quantite);
+  const p = Number(ligne.prixUnitaireHT);
+  if (!Number.isFinite(q) || !Number.isFinite(p)) return 0;
+  return Number((q * p).toFixed(2));
+}
+
+/** Totaux cohérents avec l’affichage « Qté × PU HT » (ignore totalHT stocké si obsolète). */
+export function lignesAvecTotalHTCalcule(lignes: LignePrestation[]): LignePrestation[] {
+  return lignes.map((l) => ({
+    ...l,
+    totalHT: calculateLigneTotalHT(l),
+  }));
 }
 
 export function calculateDateExpiration(dateEmission: string, dureeValidite: number): string {

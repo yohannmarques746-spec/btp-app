@@ -1,6 +1,9 @@
+import type { UnitePrestationCode } from "@/constants/unitesPrestation";
+
 export type TauxTVA = 0 | 2.6 | 3.8 | 8.1;
 
-export type UnitePrestation = "heure" | "jour" | "forfait" | "piece" | "autre";
+/** @deprecated alias — utiliser UnitePrestationCode côté nouveau code */
+export type UnitePrestation = UnitePrestationCode;
 
 export type StatutDevis = "brouillon" | "envoye" | "accepte" | "refuse" | "expire";
 
@@ -31,7 +34,7 @@ export interface LignePrestation {
   id: string;
   description: string;
   quantite: number;
-  unite: UnitePrestation;
+  unite: UnitePrestationCode;
   prixUnitaireHT: number;
   tauxTVA: TauxTVA;
   totalHT: number;
@@ -68,6 +71,6 @@ export interface TVAParTaux {
 
 export const TVA_OPTIONS: TauxTVA[] = [0, 2.6, 3.8, 8.1];
 
-export const UNITE_OPTIONS: UnitePrestation[] = ["heure", "jour", "forfait", "piece", "autre"];
-
 export const DEVIS_STATUS_OPTIONS: StatutDevis[] = ["brouillon", "envoye", "accepte", "refuse", "expire"];
+
+export type { UnitePrestationCode } from "@/constants/unitesPrestation";

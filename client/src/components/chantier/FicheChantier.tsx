@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChantiers } from "@/context/ChantiersContext";
 import { useToast } from "@/hooks/use-toast";
-import { chantierDetailsMock } from "@/mocks/chantierMock";
-import type { ChantierDetails, ChantierHeader, ChantierStatut } from "@/types/chantierDetails";
+import { buildChantierDetails, emptyChantierDetailsShell, mergeClientFieldsIntoDetails } from "@/lib/buildChantierDetails";
+import type { ChantierDetails, ChantierHeader } from "@/types/chantierDetails";
 import { FicheHeaderSection } from "@/components/chantier/FicheHeaderSection";
 import { GeneralInfoSection } from "@/components/chantier/GeneralInfoSection";
 import { DatesPlanningSection } from "@/components/chantier/DatesPlanningSection";
@@ -20,13 +20,6 @@ interface FicheChantierProps {
   onBack: () => void;
 }
 
-function mapLegacyStatus(statut: "planifié" | "en cours" | "terminé" | "archivé"): ChantierStatut {
-  if (statut === "en cours") return "en_cours";
-  if (statut === "terminé") return "termine";
-  if (statut === "archivé") return "arrete";
-  return "en_attente";
-}
-
 function durationFromDates(start?: string, end?: string): string {
   if (!start || !end) return "";
   const startDate = new Date(start);
@@ -39,31 +32,39 @@ function durationFromDates(start?: string, end?: string): string {
 }
 
 export function FicheChantier({ id, onBack }: FicheChantierProps) {
-  const { chantiers, updateChantier, deleteChantier } = useChantiers();
+  const { chantiers, clients, updateChantier, deleteChantier } = useChantiers();
   const { toast } = useToast();
+  const hydratedIdRef = useRef<string | null>(null);
 
-  const initialDetails = useMemo<ChantierDetails>(() => {
-    const fromList = chantiers.find((c) => c.id === id);
-    if (!fromList) {
-      return { ...chantierDetailsMock, id };
+  const [chantierData, setChantierData] = useState<ChantierDetails>(() => emptyChantierDetailsShell(id));
+
+  useEffect(() => {
+    hydratedIdRef.current = null;
+    setChantierData(emptyChantierDetailsShell(id));
+  }, [id]);
+
+  useEffect(() => {
+    const record = chantiers.find((c) => c.id === id);
+    if (!record) {
+      if (hydratedIdRef.current !== `missing:${id}`) {
+        setChantierData(emptyChantierDetailsShell(id));
+        hydratedIdRef.current = `missing:${id}`;
+      }
+      return;
     }
-    return {
-      ...chantierDetailsMock,
-      id: fromList.id,
-      nom: fromList.nom,
-      statut: mapLegacyStatus(fromList.statut),
-      clientNom: fromList.clientName,
-      dateDebutPrevue: fromList.dateDebut || "",
-      dateDebutReelle: "",
-      dateFinPrevue: "",
-      dateFinReelle: "",
-      dureeJoursCalendaires: undefined,
-      descriptionCourte: "",
-      jalons: [],
-    };
-  }, [chantiers, id]);
+    if (hydratedIdRef.current === id) return;
+    setChantierData(buildChantierDetails(record, clients));
+    hydratedIdRef.current = id;
+  }, [chantiers, clients, id]);
 
-  const [chantierData, setChantierData] = useState<ChantierDetails>(initialDetails);
+  useEffect(() => {
+    const record = chantiers.find((c) => c.id === id);
+    if (!record || hydratedIdRef.current !== id) return;
+    setChantierData((prev) => {
+      const next = mergeClientFieldsIntoDetails(prev, record, clients);
+      return next === prev ? prev : next;
+    });
+  }, [clients, chantiers, id]);
 
   const handleSaveHeader = (next: ChantierHeader) => {
     setChantierData((prev) => ({ ...prev, ...next }));

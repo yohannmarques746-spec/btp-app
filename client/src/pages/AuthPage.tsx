@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useLocation } from "wouter"
 import { useAuth } from "@/context/AuthContext"
+import { supabase } from "@/lib/supabaseClient"
 import { Mail, Lock, User } from "lucide-react"
 import { Label } from "@/components/ui/label"
 
@@ -15,7 +16,10 @@ export default function AuthPage() {
   const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
   const [loading, setLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null)
   const { signUp, signIn, user } = useAuth()
   const [, setLocation] = useLocation()
 
@@ -36,6 +40,7 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setInfo(null)
     setLoading(true)
 
     try {
@@ -49,8 +54,9 @@ export default function AuthPage() {
         if (error) {
           setError(error.message || "Erreur lors de la création du compte")
         } else {
-          // Rediriger vers la page de login avec code
-          setLocation("/login")
+          setInfo("Compte créé. Vérifiez votre email pour confirmer le compte avant de vous connecter.")
+          setPendingConfirmationEmail(email.trim().toLowerCase())
+          setIsSignUp(false)
         }
       } else {
         if (!email || !password) {
@@ -60,7 +66,13 @@ export default function AuthPage() {
         }
         const { error } = await signIn(email, password)
         if (error) {
-          setError(error.message || "Email ou mot de passe incorrect")
+          const rawMessage = error.message || ""
+          const isInvalidCredentials = /invalid login credentials|invalid_credentials/i.test(rawMessage)
+          if (isInvalidCredentials) {
+            setError("Identifiants invalides. Si le compte vient d'être créé, confirmez d'abord l'email puis réessayez.")
+          } else {
+            setError(rawMessage || "Email ou mot de passe incorrect")
+          }
         } else {
           // Rediriger vers la page de login avec code
           setLocation("/login")
@@ -71,6 +83,29 @@ export default function AuthPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleResendConfirmationEmail = async () => {
+    if (!pendingConfirmationEmail) {
+      setError("Aucun email en attente de confirmation.")
+      return
+    }
+    setError(null)
+    setResendLoading(true)
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email: pendingConfirmationEmail,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
+    })
+    if (resendError) {
+      setError(resendError.message || "Impossible de renvoyer l'email de confirmation.")
+      setResendLoading(false)
+      return
+    }
+    setInfo("Email de confirmation renvoyé. Vérifiez aussi vos spams.")
+    setResendLoading(false)
   }
 
   return (
@@ -115,6 +150,7 @@ export default function AuthPage() {
               onClick={() => {
                 setIsSignUp(false)
                 setError(null)
+                setInfo(null)
               }}
               className={`flex-1 ${!isSignUp 
                 ? 'bg-white/20 backdrop-blur-md text-white border-white/10' 
@@ -128,6 +164,7 @@ export default function AuthPage() {
               onClick={() => {
                 setIsSignUp(true)
                 setError(null)
+                setInfo(null)
               }}
               className={`flex-1 ${isSignUp 
                 ? 'bg-white/20 backdrop-blur-md text-white border-white/10' 
@@ -141,6 +178,24 @@ export default function AuthPage() {
             <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
               {error}
             </div>
+          )}
+
+          {info && (
+            <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-100 text-sm">
+              {info}
+            </div>
+          )}
+
+          {pendingConfirmationEmail && !isSignUp && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={resendLoading}
+              onClick={handleResendConfirmationEmail}
+              className="mb-4 w-full bg-white/10 border-white/40 text-white hover:bg-white/20 transition-colors h-10 text-sm font-medium disabled:opacity-50"
+            >
+              {resendLoading ? "Envoi..." : "Renvoyer l’email de confirmation"}
+            </Button>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">

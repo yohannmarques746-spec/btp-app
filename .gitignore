@@ -11,3 +11,7 @@ vite.config.ts.*
 .vercel/
 client/.env
 client/.env.local
+
+# Outils / caches locaux
+.npm-cache/
+.cursor/*.log
