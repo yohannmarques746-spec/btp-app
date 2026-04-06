@@ -115,7 +115,7 @@ export default function InvitePage() {
         <div className="absolute inset-0 pointer-events-none bg-black/45 dark:bg-black/60" />
       </div>
 
-      <div className="relative z-10 max-w-md mx-auto px-6 w-full">
+      <div className="relative z-10 w-full max-w-sm mx-auto px-4">
         <Card className="bg-white/10 dark:bg-black/20 backdrop-blur-lg rounded-2xl border border-white/20 p-8 shadow-2xl">
           {loading ? (
             <div className="text-center py-8">
@@ -133,7 +133,7 @@ export default function InvitePage() {
           ) : (
             <>
               <CardHeader className="text-center mb-6">
-                <CardTitle className="text-2xl font-bold text-white mb-2">
+                <CardTitle className="text-xl font-bold md:text-2xl text-white mb-2">
                   Rejoindre l'équipe
                 </CardTitle>
                 <p className="text-white/80 text-sm">
@@ -156,7 +156,7 @@ export default function InvitePage() {
                       value={code}
                       onChange={(e) => setCode(e.target.value)}
                       placeholder="Entrez votre code de connexion"
-                      className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 h-12 pl-10 text-center text-lg tracking-widest font-mono"
+                      className="h-11 w-full text-sm px-3 pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 text-center tracking-widest font-mono"
                       maxLength={10}
                       required
                       disabled={verifying}
@@ -167,7 +167,7 @@ export default function InvitePage() {
                 <Button
                   type="submit"
                   disabled={verifying}
-                  className="w-full bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors h-12 text-base font-semibold disabled:opacity-50"
+                  className="h-11 w-full text-sm font-semibold touch-manipulation bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors disabled:opacity-50"
                 >
                   {verifying ? (
                     <>

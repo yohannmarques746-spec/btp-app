@@ -129,10 +129,10 @@ export default function AuthPage() {
         )}
       </div>
 
-      <div className="relative z-10 max-w-md mx-auto px-6 w-full">
+      <div className="relative z-10 w-full max-w-sm mx-auto px-4">
         <div className="bg-white/10 dark:bg-black/20 backdrop-blur-lg rounded-2xl border border-white/20 p-8 shadow-2xl">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">
+            <h1 className="text-xl font-bold md:text-2xl text-white mb-2">
               {isSignUp ? "Créer un compte" : "Connexion"}
             </h1>
             <p className="text-white/80 text-sm">
@@ -192,7 +192,7 @@ export default function AuthPage() {
               variant="outline"
               disabled={resendLoading}
               onClick={handleResendConfirmationEmail}
-              className="mb-4 w-full bg-white/10 border-white/40 text-white hover:bg-white/20 transition-colors h-10 text-sm font-medium disabled:opacity-50"
+              className="mb-4 w-full bg-white/10 border-white/40 text-white hover:bg-white/20 transition-colors h-11 text-sm font-medium touch-manipulation disabled:opacity-50"
             >
               {resendLoading ? "Envoi..." : "Renvoyer l’email de confirmation"}
             </Button>
@@ -202,7 +202,7 @@ export default function AuthPage() {
             {isSignUp && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="fullName" className="text-white">Nom complet *</Label>
+                  <Label htmlFor="fullName" className="text-sm font-medium mb-1 text-white">Nom complet *</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
                     <Input
@@ -211,7 +211,7 @@ export default function AuthPage() {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Jean Dupont"
-                      className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 h-12 pl-10"
+                      className="h-11 w-full text-sm px-3 pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20"
                     />
                   </div>
                 </div>
@@ -219,7 +219,7 @@ export default function AuthPage() {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">Email *</Label>
+              <Label htmlFor="email" className="text-sm font-medium mb-1 text-white">Email *</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
                 <Input
@@ -228,14 +228,14 @@ export default function AuthPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="votre@email.com"
-                  className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 h-12 pl-10"
+                  className="h-11 w-full text-sm px-3 pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20"
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Mot de passe *</Label>
+              <Label htmlFor="password" className="text-sm font-medium mb-1 text-white">Mot de passe *</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
                 <Input
@@ -244,7 +244,7 @@ export default function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 h-12 pl-10"
+                  className="h-11 w-full text-sm px-3 pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20"
                   required
                   minLength={6}
                 />
@@ -254,7 +254,7 @@ export default function AuthPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors h-12 text-base font-semibold disabled:opacity-50"
+              className="h-11 w-full text-sm font-semibold touch-manipulation bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors disabled:opacity-50"
             >
               {loading ? "Chargement..." : isSignUp ? "Créer mon compte" : "Se connecter"}
             </Button>
@@ -269,7 +269,7 @@ export default function AuthPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full bg-white/10 border-white/40 text-white hover:bg-white/20 transition-colors h-10 text-sm font-medium"
+                className="h-11 w-full text-sm font-semibold touch-manipulation bg-white/10 border-white/40 text-white hover:bg-white/20 transition-colors"
                 onClick={() => setLocation("/login")}
               >
                 Continuer — saisir le code d’accès

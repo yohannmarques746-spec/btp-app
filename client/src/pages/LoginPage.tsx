@@ -130,12 +130,12 @@ export default function LoginPage() {
         )}
       </div>
 
-      <div className="relative z-10 max-w-md mx-auto px-6 w-full">
+      <div className="relative z-10 w-full max-w-sm mx-auto px-4">
         <div className="bg-white/10 dark:bg-black/20 backdrop-blur-lg rounded-2xl border border-white/20 p-8 shadow-2xl">
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2 relative">
               <div className="flex-1" />
-              <h1 className="text-3xl font-bold text-white flex-1 text-center absolute left-0 right-0">
+              <h1 className="text-xl font-bold md:text-2xl text-white flex-1 text-center absolute left-0 right-0">
                 Connexion
               </h1>
               <div className="flex items-center gap-2 ml-auto">
@@ -240,14 +240,14 @@ export default function LoginPage() {
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                     placeholder="Ou entrez votre code"
-                    className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 h-12 text-center text-lg tracking-widest font-mono"
+                    className="h-11 w-full text-sm px-3 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 text-center tracking-widest font-mono"
                     maxLength={10}
                   />
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors h-12 text-base font-semibold"
+                  className="h-11 w-full text-sm font-semibold touch-manipulation bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors"
                 >
                   Se connecter
                 </Button>
@@ -261,14 +261,14 @@ export default function LoginPage() {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="Entrez votre code"
-                  className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 h-12 text-center text-lg tracking-widest font-mono"
+                  className="h-11 w-full text-sm px-3 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-white/20 text-center tracking-widest font-mono"
                   maxLength={10}
                 />
               </div>
 
               <Button
                 type="submit"
-                className="w-full bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors h-12 text-base font-semibold"
+                className="h-11 w-full text-sm font-semibold touch-manipulation bg-[rgba(63,63,63,1)] border-4 border-card text-white hover:bg-[rgba(63,63,63,0.9)] transition-colors"
               >
                 Se connecter
               </Button>

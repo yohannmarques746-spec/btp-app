@@ -9,6 +9,9 @@ import { useChantiers, Chantier } from '@/context/ChantiersContext';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
+import { useRendezVous } from '@/hooks/useRendezVous';
+import { RdvDialog } from '@/components/planning/RdvDialog';
+import type { RendezVous } from '@/types/rendezVous';
 
 type DurationUnit = 'j' | 's' | 'm';
 
@@ -143,7 +146,16 @@ export default function PlanningPage() {
   const [editStatut, setEditStatut] = useState<Chantier['statut']>('planifié');
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
-  
+
+  const { rendezVous, refreshForMonth, createRendezVous, updateRendezVous, deleteRendezVous } = useRendezVous();
+  const [rdvDialogOpen, setRdvDialogOpen] = useState(false);
+  const [rdvEdit, setRdvEdit] = useState<RendezVous | null>(null);
+  const [rdvInitDate, setRdvInitDate] = useState<string>('');
+
+  useEffect(() => {
+    void refreshForMonth(currentDate);
+  }, [currentDate, refreshForMonth]);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   
@@ -270,17 +282,24 @@ export default function PlanningPage() {
   return (
     <PageWrapper>
       <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 rounded-tl-3xl">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">
-              Planning des Chantiers
+            <h1 className="text-lg font-bold md:text-2xl text-white">
+              Planning des Chantiers & Rendez-vous
             </h1>
             <p className="text-sm text-white/70">Calendrier intégré pour organiser vos interventions</p>
           </div>
+          <button
+            type="button"
+            onClick={() => { setRdvEdit(null); setRdvInitDate(''); setRdvDialogOpen(true); }}
+            className="text-sm px-3 py-1.5 border border-blue-500 text-blue-500 rounded hover:bg-blue-500/10"
+          >
+            + Nouveau rendez-vous
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 px-3 py-3 md:px-6 md:py-6 space-y-6">
         {/* Contrôles du calendrier */}
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
           <CardHeader>
@@ -314,18 +333,20 @@ export default function PlanningPage() {
 
         {/* Calendrier */}
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
-          <CardContent className="p-6">
+          <CardContent className="p-3 md:p-5">
             {/* En-têtes des jours */}
-            <div className="grid grid-cols-7 gap-2 mb-4">
+            <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+              <div className="min-w-[600px] md:min-w-0">
+                <div className="grid grid-cols-7 gap-2 mb-4">
               {dayNames.map(day => (
                 <div key={day} className="text-center text-sm font-semibold text-white/70 py-2">
                   {day}
                 </div>
               ))}
-            </div>
+                </div>
             
-            {/* Grille du calendrier */}
-            <div className="grid grid-cols-7 gap-2">
+                {/* Grille du calendrier */}
+                <div className="grid grid-cols-7 gap-2">
               {days.map((day, index) => {
                 const dayChantiers = getChantiersForDay(day.date);
                 const isToday = day.isToday;
@@ -386,10 +407,28 @@ export default function PlanningPage() {
                           +{dayChantiers.length - 2} autre(s)
                         </div>
                       )}
+                      {rendezVous
+                        .filter((rdv) => rdv.date === formatDateForInput(day.date))
+                        .map((rdv) => (
+                          <div
+                            key={rdv.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRdvEdit(rdv);
+                              setRdvInitDate(rdv.date);
+                              setRdvDialogOpen(true);
+                            }}
+                            className="border-l-4 border-blue-500 bg-blue-500/15 text-xs px-1 py-0.5 rounded-sm cursor-pointer truncate text-white"
+                          >
+                            {rdv.heure_debut.slice(0, 5)} {rdv.titre}
+                          </div>
+                        ))}
                     </div>
                   </div>
                 );
               })}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -412,6 +451,10 @@ export default function PlanningPage() {
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded bg-green-500/30 border border-green-500/50"></div>
                 <span className="text-sm">Terminé</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 border-l-2 border-blue-500 bg-blue-500/15 rounded-sm" />
+                <span className="text-xs text-gray-400">Rendez-vous</span>
               </div>
             </div>
           </CardContent>
@@ -680,6 +723,25 @@ export default function PlanningPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <RdvDialog
+        open={rdvDialogOpen}
+        onClose={() => { setRdvDialogOpen(false); setRdvEdit(null); }}
+        onSave={async (data) => {
+          if (rdvEdit) {
+            await updateRendezVous({ ...data, id: rdvEdit.id });
+          } else {
+            await createRendezVous(data);
+          }
+          await refreshForMonth(currentDate);
+        }}
+        onDelete={async (id) => {
+          await deleteRendezVous(id);
+          await refreshForMonth(currentDate);
+        }}
+        initialDate={rdvInitDate}
+        editData={rdvEdit}
+        chantiersOptions={chantiers.map((c) => ({ id: c.id, nom: c.nom }))}
+      />
     </PageWrapper>
   );
 }

@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Sidebar from '@/components/Sidebar'
 import { CRMPipeline } from '@/components/CRMPipeline'
+import { MobileHeader } from '@/components/MobileHeader'
 import { 
   Building, 
   FileText, 
@@ -23,10 +24,13 @@ import {
 } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { useChantiers } from '@/context/ChantiersContext'
+import { PlanningRedirect } from '@/components/planning/PlanningRedirect'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'projects' | 'crm' | 'planning' | 'finance' | 'team'>('overview')
   const [location, setLocation] = useLocation();
+  const mainContainerRef = useRef<HTMLDivElement | null>(null);
+  const mainContentRef = useRef<HTMLElement | null>(null);
 
   // Vérifier si l'utilisateur est un membre d'équipe et rediriger
   useEffect(() => {
@@ -35,26 +39,39 @@ export default function Dashboard() {
       setLocation('/team-dashboard')
     }
   }, [setLocation])
+
+  useEffect(() => {
+    const runId = `run-${Date.now()}`;
+    const mainRect = mainContainerRef.current?.getBoundingClientRect();
+    const contentRect = mainContentRef.current?.getBoundingClientRect();
+    const firstKpi = document.querySelector('.shadcn-card') as HTMLElement | null;
+    const firstKpiRect = firstKpi?.getBoundingClientRect();
+    // #region agent log
+    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'53795b'},body:JSON.stringify({sessionId:'53795b',runId,hypothesisId:'H1',location:'Dashboard.tsx:mount',message:'Dashboard layout geometry snapshot',data:{innerWidth:window.innerWidth,innerHeight:window.innerHeight,docClientWidth:document.documentElement.clientWidth,bodyScrollWidth:document.body.scrollWidth,mdMatch:window.matchMedia('(min-width: 768px)').matches,mainRect,contentRect,firstKpiRect,activeTab},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [activeTab]);
   
   return (
-    <div className="flex min-h-screen relative overflow-hidden">
+    <div className="flex min-h-screen relative md:overflow-hidden">
       {/* Sidebar - now fixed, no animation */}
       <Sidebar />
 
       {/* Main Content - animated */}
       <AnimatePresence mode="wait">
         <motion.div
+          ref={mainContainerRef}
           key={`${location}-${activeTab}`}
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20, scale: 0.98 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="flex-1 flex flex-col relative z-10 ml-64 rounded-l-3xl overflow-hidden"
+          className="flex-1 flex flex-col relative z-10 ml-0 md:ml-64 md:rounded-l-3xl min-h-screen md:overflow-hidden"
         >
-        <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 rounded-tl-3xl">
+        <MobileHeader title="Tableau de bord" />
+        <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 md:rounded-tl-3xl">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white">
+              <h1 className="text-lg font-bold md:text-2xl text-white">
                 Dashboard CALDY
               </h1>
               <p className="text-sm text-white/70">Construire pour durer</p>
@@ -69,7 +86,7 @@ export default function Dashboard() {
         </header>
 
         {/* Tabs Navigation */}
-        <div className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 rounded-tl-3xl">
+        <div className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 md:rounded-tl-3xl">
           <div className="flex gap-2 overflow-x-auto">
             <Button
               variant="ghost"
@@ -137,12 +154,12 @@ export default function Dashboard() {
         </div>
 
         {/* Tab Content */}
-        <main className="flex-1 p-6 space-y-6 overflow-auto">
+        <main ref={mainContentRef} className="flex-1 px-3 py-3 pb-[env(safe-area-inset-bottom)] md:px-6 md:py-6 space-y-6 overflow-auto">
           {activeTab === 'overview' && <OverviewTab />}
           {activeTab === 'quotes' && <QuotesTab />}
           {activeTab === 'projects' && <ProjectsTab />}
           {activeTab === 'crm' && <CRMTab />}
-          {activeTab === 'planning' && <PlanningTab />}
+          {activeTab === 'planning' && <PlanningRedirect />}
           {activeTab === 'finance' && <FinanceTab />}
           {activeTab === 'team' && <TeamTab />}
         </main>
@@ -166,9 +183,9 @@ function OverviewTab() {
   
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 [@media(max-width:349px)]:grid-cols-1 gap-2 md:grid-cols-4 md:gap-4">
         <Card
-          className="bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors"
+          className="min-w-0 bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors p-3 md:p-5"
           onClick={() => setLocation('/dashboard')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -176,13 +193,13 @@ function OverviewTab() {
               <Euro className="h-4 w-4 text-white/70" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">€{chiffreAffairesEstime.toLocaleString('fr-FR')}</div>
-              <p className="text-xs text-white/70">{chantiersTermines} chantier(s) terminé(s)</p>
+            <div className="text-base font-bold md:text-xl">€{chiffreAffairesEstime.toLocaleString('fr-FR')}</div>
+              <p className="text-xs text-gray-500 md:text-sm">{chantiersTermines} chantier(s) terminé(s)</p>
           </CardContent>
         </Card>
 
         <Card
-          className="bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors"
+          className="min-w-0 bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors p-3 md:p-5"
           onClick={() => setLocation('/dashboard/projects')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -190,13 +207,13 @@ function OverviewTab() {
             <Building className="h-4 w-4 text-white/70" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{chantiersActifs}</div>
-            <p className="text-xs text-white/70">{chantiersEnCours} en cours</p>
+            <div className="text-base font-bold md:text-xl">{chantiersActifs}</div>
+            <p className="text-xs text-gray-500 md:text-sm">{chantiersEnCours} en cours</p>
           </CardContent>
         </Card>
 
         <Card
-          className="bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors"
+          className="min-w-0 bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors p-3 md:p-5"
           onClick={() => setLocation('/dashboard/quotes')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -204,13 +221,13 @@ function OverviewTab() {
             <FileText className="h-4 w-4 text-white/70" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{devisEnAttente}</div>
-            <p className="text-xs text-white/70">Réponses attendues</p>
+            <div className="text-base font-bold md:text-xl">{devisEnAttente}</div>
+            <p className="text-xs text-gray-500 md:text-sm">Réponses attendues</p>
           </CardContent>
         </Card>
 
         <Card
-          className="bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors"
+          className="min-w-0 bg-black/20 backdrop-blur-xl border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-colors p-3 md:p-5"
           onClick={() => setLocation('/dashboard/projects')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -218,8 +235,8 @@ function OverviewTab() {
             <TrendingUp className="h-4 w-4 text-white/70" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{tauxConversion}%</div>
-            <p className="text-xs text-white/70">{chantiersTermines} terminé(s) sur {totalChantiers}</p>
+            <div className="text-base font-bold md:text-xl">{tauxConversion}%</div>
+            <p className="text-xs text-gray-500 md:text-sm">{chantiersTermines} terminé(s) sur {totalChantiers}</p>
           </CardContent>
         </Card>
       </div>
@@ -273,8 +290,8 @@ function QuotesTab() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-white">Gestion des Devis</h2>
-        <Button>
+        <h2 className="text-sm font-semibold md:text-lg text-white">Gestion des Devis</h2>
+        <Button className="h-11 px-4 text-sm touch-manipulation">
           <Plus className="h-4 w-4 mr-2" />
           Nouveau Devis
         </Button>
@@ -316,8 +333,8 @@ function ProjectsTab() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-white">Estimation Automatique des Chantiers</h2>
-        <Button>
+        <h2 className="text-sm font-semibold md:text-lg text-white">Estimation Automatique des Chantiers</h2>
+        <Button className="h-11 px-4 text-sm touch-manipulation">
           <Plus className="h-4 w-4 mr-2" />
           Nouveau Chantier
         </Button>
@@ -432,8 +449,8 @@ function CRMTab() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-white">CRM Pipeline</h2>
-        <Button>
+        <h2 className="text-sm font-semibold md:text-lg text-white">CRM Pipeline</h2>
+        <Button className="h-11 px-4 text-sm touch-manipulation">
           <Mail className="h-4 w-4 mr-2" />
           Connecter Email
         </Button>
@@ -474,90 +491,13 @@ function CRMTab() {
   )
 }
 
-// Planning Tab Component
-function PlanningTab() {
-  const [currentDate] = useState(new Date())
-  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-  const weeks = [
-    [1, 2, 3, 4, 5, 6, 7],
-    [8, 9, 10, 11, 12, 13, 14],
-    [15, 16, 17, 18, 19, 20, 21],
-    [22, 23, 24, 25, 26, 27, 28],
-    [29, 30, 31]
-  ]
-
-  const [events] = useState([
-    { day: 5, title: 'Chantier Paris', time: '09:00' },
-    { day: 12, title: 'Réunion client', time: '14:00' },
-    { day: 18, title: 'Livraison matériaux', time: '10:00' },
-    { day: 25, title: 'Fin de chantier', time: '17:00' }
-  ])
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-white">Planning de Chantier</h2>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouveau Rendez-vous
-        </Button>
-      </div>
-
-      <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
-        <CardHeader>
-          <CardTitle>Calendrier - {currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {/* Days header */}
-            <div className="grid grid-cols-7 gap-2 mb-2">
-              {days.map((day) => (
-                <div key={day} className="text-center text-sm font-medium text-white/70 py-2">
-                  {day}
-                </div>
-              ))}
-            </div>
-            {/* Calendar grid */}
-            {weeks.map((week, weekIndex) => (
-              <div key={weekIndex} className="grid grid-cols-7 gap-2">
-                {week.map((day) => {
-                  const dayEvents = events.filter(e => e.day === day)
-                  return (
-                    <div
-                      key={day}
-                      className="min-h-[80px] p-2 border border-white/10 rounded-lg bg-black/20 backdrop-blur-md hover:bg-white/10 transition-colors text-white"
-                    >
-                      <div className="text-sm font-medium mb-1">{day}</div>
-                      <div className="space-y-1">
-                        {dayEvents.map((event, idx) => (
-                          <div
-                            key={idx}
-                            className="text-xs bg-black/20 backdrop-blur-md border border-white/10 text-white rounded px-1 py-0.5 truncate"
-                            title={`${event.time} - ${event.title}`}
-                          >
-                            {event.time} {event.title}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 // Finance Tab Component
 function FinanceTab() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-white">Bilan Financier</h2>
-        <Button>
+        <h2 className="text-sm font-semibold md:text-lg text-white">Bilan Financier</h2>
+        <Button className="h-11 px-4 text-sm touch-manipulation">
           <Camera className="h-4 w-4 mr-2" />
           Scanner un Ticket
         </Button>
@@ -584,7 +524,7 @@ function FinanceTab() {
             <CardTitle className="text-sm">Achat de Repas</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">€450</p>
+            <p className="text-base font-bold md:text-xl">€450</p>
           </CardContent>
         </Card>
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
@@ -592,7 +532,7 @@ function FinanceTab() {
             <CardTitle className="text-sm">Plein d'Essence</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">€320</p>
+            <p className="text-base font-bold md:text-xl">€320</p>
           </CardContent>
         </Card>
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
@@ -600,7 +540,7 @@ function FinanceTab() {
             <CardTitle className="text-sm">Matériaux</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">€2,150</p>
+            <p className="text-base font-bold md:text-xl">€2,150</p>
           </CardContent>
         </Card>
       </div>
@@ -613,7 +553,7 @@ function TeamTab() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Gestion de l'Équipe</h2>
+        <h2 className="text-sm font-semibold md:text-lg">Gestion de l'Équipe</h2>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
           Ajouter un Membre

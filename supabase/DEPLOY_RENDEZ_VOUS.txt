@@ -1,0 +1,28 @@
+Appliquer la table public.rendez_vous (corrige l’erreur PostgREST « Could not find the table … in the schema cache »)
+================================================================================
+
+1) Vérifier dans Supabase Studio
+   - Ouvrir le projet correspondant à votre URL dans client/.env (ex. uowsssvaobrpdpnhxgwc.supabase.co).
+   - Table Editor → schéma « public » → chercher « rendez_vous ».
+
+2) Si la table n’existe pas — option SQL (la plus simple)
+   - Studio → SQL → New query.
+   - Ouvrir le fichier : supabase/migrations/20250406120000_create_rendez_vous.sql
+   - Copier-coller tout le contenu → Run.
+   - Attendre quelques secondes ; recharger l’app.
+
+3) Option CLI (même résultat que le dossier migrations)
+   Prérequis : corriger le cache npm si « EACCES » :
+     sudo chown -R "$(whoami)" ~/.npm
+   Ou utiliser un cache temporaire :
+     NPM_CONFIG_CACHE=/tmp/npm-cache-supabase npx supabase@latest link --project-ref <VOTRE_PROJECT_REF>
+     NPM_CONFIG_CACHE=/tmp/npm-cache-supabase npx supabase@latest db push
+   Le project_ref est l’identifiant dans VITE_SUPABASE_URL :
+     https://<project_ref>.supabase.co
+
+4) Cohérence .env
+   - client/.env doit avoir la même URL et la même clé « anon » que le projet où vous avez exécuté le SQL.
+   - Voir client/.env.example pour le projet de référence documenté.
+
+5) Après création
+   - Erreur « schema cache » : en général disparaît aussitôt ; sinon déconnexion/reconnexion Studio ou nouvelle requête depuis l’app.

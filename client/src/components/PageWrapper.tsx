@@ -1,9 +1,11 @@
 import Sidebar from '@/components/Sidebar'
 import { useLocation } from 'wouter'
 import { AnimatePresence, motion } from 'framer-motion'
+import { MobileHeader } from './MobileHeader'
 
 interface PageWrapperProps {
   children: React.ReactNode
+  mobileTitle?: string
 }
 
 const contentVariants = {
@@ -32,11 +34,11 @@ const contentVariants = {
   }
 };
 
-export function PageWrapper({ children }: PageWrapperProps) {
+export function PageWrapper({ children, mobileTitle }: PageWrapperProps) {
   const [location] = useLocation();
 
   return (
-    <div className="flex min-h-screen relative overflow-hidden">
+    <div className="flex min-h-screen relative overflow-x-hidden md:overflow-hidden">
       {/* Sidebar - now fixed, no animation */}
       <Sidebar />
 
@@ -48,9 +50,12 @@ export function PageWrapper({ children }: PageWrapperProps) {
           animate="animate"
           exit="exit"
           variants={contentVariants}
-          className="flex-1 flex flex-col relative z-10 ml-64 rounded-l-3xl overflow-hidden"
+          className="flex-1 flex flex-col relative z-10 ml-0 md:ml-64 md:rounded-l-3xl min-h-screen md:overflow-hidden"
         >
-          {children}
+          <MobileHeader title={mobileTitle} />
+          <div className="px-3 py-3 pb-[env(safe-area-inset-bottom)] md:px-6 md:py-6">
+            {children}
+          </div>
         </motion.div>
       </AnimatePresence>
     </div>

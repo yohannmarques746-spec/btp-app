@@ -385,11 +385,11 @@ export default function QuotesPage() {
   };
 
   return (
-    <PageWrapper>
+    <PageWrapper mobileTitle="Devis">
       <header className="border-b border-white/10 bg-black/20 px-6 py-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">Generateur de Devis Suisse</h1>
+            <h1 className="text-lg font-bold md:text-2xl text-white">Generateur de Devis Suisse</h1>
             <p className="text-sm text-white/70">Dashboard | Nouveau Devis | Parametres</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -406,7 +406,7 @@ export default function QuotesPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto px-3 py-3 md:px-6 md:py-6">
         {activeView === "dashboard" && (
           <Card className="bg-black/20 border-white/10 text-white">
             <CardHeader>

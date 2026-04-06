@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import TeamSidebar from '@/components/TeamSidebar'
 import { GlobalBackground } from '@/components/GlobalBackground'
+import { MobileHeader } from '@/components/MobileHeader'
 import { 
   Building, 
   Calendar,
@@ -14,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useChantiers } from '@/context/ChantiersContext'
+import { PlanningRedirect } from '@/components/planning/PlanningRedirect'
 
 export default function TeamDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'planning'>('overview')
@@ -43,7 +45,7 @@ export default function TeamDashboard() {
   return (
     <>
       <GlobalBackground />
-      <div className="flex min-h-screen relative overflow-hidden">
+      <div className="flex min-h-screen relative md:overflow-hidden">
         {/* Sidebar */}
         <TeamSidebar />
 
@@ -55,12 +57,13 @@ export default function TeamDashboard() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.98 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="flex-1 flex flex-col relative z-10 ml-64 rounded-l-3xl overflow-hidden"
+            className="flex-1 flex flex-col relative z-10 ml-0 md:ml-64 md:rounded-l-3xl min-h-screen md:overflow-hidden"
           >
-            <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 rounded-tl-3xl">
+            <MobileHeader title="Équipe" />
+            <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 md:rounded-tl-3xl">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-white">
+                  <h1 className="text-lg font-bold md:text-2xl text-white">
                     Dashboard Membre d'Équipe
                   </h1>
                   <p className="text-sm text-white/70">
@@ -71,7 +74,7 @@ export default function TeamDashboard() {
             </header>
 
             {/* Tabs Navigation */}
-            <div className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 rounded-tl-3xl">
+            <div className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 md:rounded-tl-3xl">
               <div className="flex gap-2 overflow-x-auto">
                 <Button
                   variant="ghost"
@@ -103,18 +106,18 @@ export default function TeamDashboard() {
             </div>
 
             {/* Tab Content */}
-            <main className="flex-1 p-6 space-y-6 overflow-auto">
+            <main className="flex-1 px-3 py-3 md:px-6 md:py-6 space-y-6 overflow-auto">
               {activeTab === 'overview' && (
                 <div className="space-y-6">
                   {/* Stats Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
                     <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Mes Chantiers</CardTitle>
                         <Building className="h-4 w-4 text-white/70" />
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold">{myChantiers.length}</div>
+                        <div className="text-base font-bold md:text-xl">{myChantiers.length}</div>
                         <p className="text-xs text-white/70">Chantiers actifs</p>
                       </CardContent>
                     </Card>
@@ -125,7 +128,7 @@ export default function TeamDashboard() {
                         <Clock className="h-4 w-4 text-white/70" />
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold">{chantiersEnCours.length}</div>
+                        <div className="text-base font-bold md:text-xl">{chantiersEnCours.length}</div>
                         <p className="text-xs text-white/70">Chantiers en cours</p>
                       </CardContent>
                     </Card>
@@ -136,7 +139,7 @@ export default function TeamDashboard() {
                         <Calendar className="h-4 w-4 text-white/70" />
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold">{chantiersPlanifies.length}</div>
+                        <div className="text-base font-bold md:text-xl">{chantiersPlanifies.length}</div>
                         <p className="text-xs text-white/70">Chantiers planifiés</p>
                       </CardContent>
                     </Card>
@@ -223,19 +226,7 @@ export default function TeamDashboard() {
                 </Card>
               )}
 
-              {activeTab === 'planning' && (
-                <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
-                  <CardHeader>
-                    <CardTitle>Mon Planning</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-white/70 text-center py-4">
-                      Vue planning simplifiée pour les membres d'équipe
-                    </p>
-                    {/* Ici vous pouvez ajouter un calendrier simplifié si nécessaire */}
-                  </CardContent>
-                </Card>
-              )}
+              {activeTab === 'planning' && <PlanningRedirect />}
             </main>
           </motion.div>
         </AnimatePresence>

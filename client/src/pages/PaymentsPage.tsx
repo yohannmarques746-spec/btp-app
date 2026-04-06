@@ -72,7 +72,7 @@ export default function PaymentsPage() {
       <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-lg font-bold md:text-2xl text-white">
               Suivi des Paiements
             </h1>
             <p className="text-sm text-white/70">Facturation et gestion de trésorerie</p>
@@ -80,7 +80,7 @@ export default function PaymentsPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 px-3 py-3 md:px-6 md:py-6 space-y-6">
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
           <CardHeader>
             <CardTitle className="text-xl text-white flex items-center gap-2">
@@ -126,7 +126,7 @@ export default function PaymentsPage() {
               <Input type="number" value={form.montantTTC} onChange={(e) => setForm({ ...form, montantTTC: e.target.value })} className="bg-black/20 border-white/10" />
             </div>
             <div className="md:col-span-2">
-              <Button onClick={handleSave} disabled={isSaving}>
+              <Button onClick={handleSave} disabled={isSaving} className="h-11 min-w-[44px] px-4 text-sm touch-manipulation">
                 <Plus className="h-4 w-4 mr-2" />
                 {isSaving ? 'Enregistrement...' : 'Enregistrer'}
               </Button>

@@ -15,16 +15,15 @@ import InvitePage from "@/pages/InvitePage";
 import TeamDashboard from "@/pages/TeamDashboard";
 import Dashboard from "@/pages/Dashboard";
 import QuotesPage from "@/pages/QuotesPage";
-import AIVisualizationPage from "@/pages/AIVisualizationPage";
 import ProspectsPage from "@/pages/ProspectsPage";
 import ProjectsPage from "@/pages/ProjectsPage";
 import PlanningPage from "@/pages/PlanningPage";
-import EstimationPage from "@/pages/EstimationPage";
 import ClientsPage from "@/pages/ClientsPage";
 import CRMPipelinePage from "@/pages/CRMPipelinePage";
 import TeamPage from "@/pages/TeamPage";
 import PaymentsPage from "@/pages/PaymentsPage";
 import NotFound from "@/pages/not-found";
+import { MobileSidebarProvider } from "@/contexts/MobileSidebarContext";
 
 const pageVariants = {
   initial: {
@@ -54,6 +53,8 @@ const pageVariants = {
 
 function Router() {
   const [location] = useLocation();
+  // Liens sidebar orphelins à supprimer dans Sidebar/TeamSidebar:
+  // /dashboard/estimation, /dashboard/ai-visualization
 
   const getComponent = () => {
     // Vérifier si c'est une route d'invitation
@@ -72,12 +73,8 @@ function Router() {
         return <TeamDashboard />;
       case "/dashboard":
         return <ProtectedRoute><Dashboard /></ProtectedRoute>;
-      case "/dashboard/estimation":
-        return <ProtectedRoute><EstimationPage /></ProtectedRoute>;
       case "/dashboard/quotes":
         return <ProtectedRoute><QuotesPage /></ProtectedRoute>;
-      case "/dashboard/ai-visualization":
-        return <ProtectedRoute><AIVisualizationPage /></ProtectedRoute>;
       case "/dashboard/prospects":
         return <ProtectedRoute><ProspectsPage /></ProtectedRoute>;
       case "/dashboard/projects":
@@ -126,11 +123,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ChantiersProvider>
-          <TooltipProvider>
-            <GlobalBackground />
-            <Toaster />
-            <Router />
-          </TooltipProvider>
+          <MobileSidebarProvider>
+            <TooltipProvider>
+              <GlobalBackground />
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </MobileSidebarProvider>
         </ChantiersProvider>
       </AuthProvider>
     </QueryClientProvider>

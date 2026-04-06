@@ -144,7 +144,7 @@ export default function ProjectsPage() {
       <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 rounded-tl-3xl">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-lg font-bold md:text-2xl text-white">
               {showArchived ? 'Chantiers archivés' : 'Mes Chantiers'}
             </h1>
             <p className="text-sm text-white/70">
@@ -162,14 +162,14 @@ export default function ProjectsPage() {
               {showArchived ? 'Voir actifs' : 'Archivés'}
             </Button>
             <Link href="/dashboard/clients">
-              <Button variant="outline" className="text-white border-white/20 hover:bg-white/10">
+              <Button variant="outline" className="h-11 min-w-[44px] px-4 text-sm touch-manipulation text-white border-white/20 hover:bg-white/10">
                 <User className="h-4 w-4 mr-2" />
                 Clients
               </Button>
             </Link>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30">
+                <Button className="h-11 min-w-[44px] px-4 text-sm touch-manipulation bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30">
                   <Plus className="h-4 w-4 mr-2" />
                   Ajouter un Chantier
                 </Button>
@@ -315,7 +315,7 @@ export default function ProjectsPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-6">
+      <main className="flex-1 px-3 py-3 md:px-6 md:py-6">
         {selectedChantierId ? (
           <FicheChantier key={selectedChantierId} id={selectedChantierId} onBack={() => setSelectedChantierId(null)} />
         ) : visibleChantiers.length === 0 ? (
@@ -346,7 +346,7 @@ export default function ProjectsPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
             {visibleChantiers.map((chantier) => (
               <Card
                 key={chantier.id}

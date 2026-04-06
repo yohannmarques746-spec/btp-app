@@ -287,3 +287,5 @@ export function useChantiers() {
   return { chantiers, loading, error, refresh, saveChantier, updateChantier, deleteChantier };
 }
 
+
+export { getCurrentUserId };
