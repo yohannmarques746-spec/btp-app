@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building, Plus, Calendar, Clock, User, Image as ImageIcon, X, Archive } from 'lucide-react';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useChantiers, Chantier } from '@/context/ChantiersContext';
 import { useToast } from '@/hooks/use-toast';
 import { FicheChantier } from '@/components/chantier/FicheChantier';
+import { getAutoStatut } from '@/utils/chantierStatut';
 
 export default function ProjectsPage() {
   const { toast } = useToast();
@@ -29,7 +30,26 @@ export default function ProjectsPage() {
   });
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const visibleChantiers = chantiers.filter((chantier) =>
+  // Enrichir les chantiers avec un statut automatique basé sur les dates
+  const chantiersWithAutoStatut = useMemo(() => {
+    return chantiers.map((ch) => {
+      // Estimer la date de fin à partir de dateDebut + duree
+      let dateFin: string | null = null;
+      if (ch.dateDebut && ch.duree) {
+        const match = ch.duree.match(/(\d+)/);
+        if (match) {
+          const days = parseInt(match[1], 10);
+          const end = new Date(ch.dateDebut);
+          end.setDate(end.getDate() + days);
+          dateFin = end.toISOString().split('T')[0];
+        }
+      }
+      const auto = getAutoStatut(ch.dateDebut, dateFin, ch.statut);
+      return auto ? { ...ch, statut: auto } : ch;
+    });
+  }, [chantiers]);
+
+  const visibleChantiers = chantiersWithAutoStatut.filter((chantier) =>
     showArchived ? chantier.archived : !chantier.archived
   );
 

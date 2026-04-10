@@ -2,8 +2,10 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Mail, User, Phone, Calendar, FileText } from "lucide-react"
+import { Mail, Phone } from "lucide-react"
 import { motion } from "framer-motion"
+import { useToast } from "@/hooks/use-toast"
+import { sendCrmEmail } from "@/lib/crmEmail"
 
 interface Prospect {
   id: string
@@ -21,7 +23,19 @@ interface Column {
   items: Prospect[]
 }
 
+const DEFAULT_RELANCE =
+  "Bonjour, je souhaite faire un suivi concernant notre échange précédent..."
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
 export function CRMPipeline() {
+  const { toast } = useToast()
   const [columns, setColumns] = useState<Column[]>([
     {
       id: 'all',
@@ -69,6 +83,9 @@ export function CRMPipeline() {
   const [showFollowupModal, setShowFollowupModal] = useState(false)
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null)
   const [selectedColumn, setSelectedColumn] = useState<string>("")
+  const [relanceText, setRelanceText] = useState<string>(DEFAULT_RELANCE)
+  const [quoteSending, setQuoteSending] = useState(false)
+  const [followupSending, setFollowupSending] = useState(false)
 
   const handleDragStart = (prospect: Prospect, columnId: string) => {
     setDraggedItem({ prospect, columnId })
@@ -83,7 +100,6 @@ export function CRMPipeline() {
 
     const { prospect, columnId: sourceColumnId } = draggedItem
 
-    // Si on déplace vers "Envoi du devis", ouvrir la popup
     if (targetColumnId === 'quote') {
       setSelectedProspect(prospect)
       setSelectedColumn(targetColumnId)
@@ -91,15 +107,14 @@ export function CRMPipeline() {
       return
     }
 
-    // Si on déplace vers une colonne de relance, ouvrir la popup
     if (targetColumnId.startsWith('followup')) {
       setSelectedProspect(prospect)
       setSelectedColumn(targetColumnId)
+      setRelanceText(DEFAULT_RELANCE)
       setShowFollowupModal(true)
       return
     }
 
-    // Déplacer l'élément
     setColumns(prev => {
       const newColumns = prev.map(col => {
         if (col.id === sourceColumnId) {
@@ -122,7 +137,7 @@ export function CRMPipeline() {
     setDraggedItem(null)
   }
 
-  const handleQuoteConfirm = () => {
+  const commitQuotePlacement = () => {
     if (!draggedItem || !selectedProspect) return
 
     setColumns(prev => {
@@ -144,15 +159,12 @@ export function CRMPipeline() {
       return newColumns
     })
 
-    // Ici, on déclencherait le webhook pour envoyer le devis
-    console.log("Devis envoyé à:", selectedProspect.email)
-
     setShowQuoteModal(false)
     setSelectedProspect(null)
     setDraggedItem(null)
   }
 
-  const handleFollowupConfirm = () => {
+  const commitFollowupPlacement = () => {
     if (!draggedItem || !selectedProspect) return
 
     setColumns(prev => {
@@ -174,13 +186,72 @@ export function CRMPipeline() {
       return newColumns
     })
 
-    // Ici, on déclencherait le webhook pour envoyer la relance
-    console.log("Relance envoyée à:", selectedProspect.email)
-
     setShowFollowupModal(false)
     setSelectedProspect(null)
     setSelectedColumn("")
     setDraggedItem(null)
+  }
+
+  const handleQuoteSend = async () => {
+    if (!draggedItem || !selectedProspect) return
+    setQuoteSending(true)
+    try {
+      const name = escapeHtml(selectedProspect.name)
+      const html = `
+<p>Bonjour ${name},</p>
+<p>Veuillez trouver ci-dessous un récapitulatif provisoire. Le détail complet de votre devis vous sera communiqué prochainement.</p>
+<p><em>Aperçu — montants à confirmer.</em></p>
+<p>Cordialement,</p>
+`.trim()
+
+      await sendCrmEmail({
+        to: selectedProspect.email,
+        subject: `Devis - ${selectedProspect.name}`,
+        html,
+        type: "devis",
+      })
+
+      toast({
+        title: "Devis envoyé",
+        description: "L’email a été envoyé avec succès.",
+      })
+      commitQuotePlacement()
+    } catch {
+      toast({
+        title: "Erreur",
+        description:
+          "Impossible d’envoyer l’email. Vérifiez la configuration ou réessayez plus tard.",
+      })
+    } finally {
+      setQuoteSending(false)
+    }
+  }
+
+  const handleFollowupSend = async () => {
+    if (!draggedItem || !selectedProspect) return
+    setFollowupSending(true)
+    try {
+      await sendCrmEmail({
+        to: selectedProspect.email,
+        subject: `Relance - ${selectedProspect.name}`,
+        text: relanceText,
+        type: "relance",
+      })
+
+      toast({
+        title: "Relance envoyée",
+        description: "L’email a été envoyé avec succès.",
+      })
+      commitFollowupPlacement()
+    } catch {
+      toast({
+        title: "Erreur",
+        description:
+          "Impossible d’envoyer l’email. Vérifiez la configuration ou réessayez plus tard.",
+      })
+    } finally {
+      setFollowupSending(false)
+    }
   }
 
   return (
@@ -237,7 +308,6 @@ export function CRMPipeline() {
         ))}
       </div>
 
-      {/* Modal pour visualisation du devis */}
       {showQuoteModal && selectedProspect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <Card className="bg-black/20 backdrop-blur-xl border border-white/10 w-full max-w-2xl m-4 text-white">
@@ -263,15 +333,19 @@ export function CRMPipeline() {
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => {
-                  setShowQuoteModal(false)
-                  setSelectedProspect(null)
-                  setDraggedItem(null)
-                }}>
+                <Button
+                  variant="outline"
+                  disabled={quoteSending}
+                  onClick={() => {
+                    setShowQuoteModal(false)
+                    setSelectedProspect(null)
+                    setDraggedItem(null)
+                  }}
+                >
                   Annuler
                 </Button>
-                <Button onClick={handleQuoteConfirm}>
-                  Envoyer le Devis
+                <Button onClick={() => void handleQuoteSend()} disabled={quoteSending}>
+                  {quoteSending ? "Envoi…" : "Envoyer le Devis"}
                 </Button>
               </div>
             </CardContent>
@@ -279,7 +353,6 @@ export function CRMPipeline() {
         </div>
       )}
 
-      {/* Modal pour relance */}
       {showFollowupModal && selectedProspect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <Card className="bg-black/20 backdrop-blur-xl border border-white/10 w-full max-w-2xl m-4 text-white">
@@ -295,20 +368,28 @@ export function CRMPipeline() {
                 <label className="text-sm font-medium mb-2 block">Message (modifiable):</label>
                 <textarea
                   className="w-full px-3 py-2 rounded-md border bg-black/20 backdrop-blur-md border-white/10 text-white placeholder:text-white/50 min-h-[150px]"
-                  defaultValue="Bonjour, je souhaite faire un suivi concernant notre échange précédent..."
+                  value={relanceText}
+                  onChange={(e) => setRelanceText(e.target.value)}
                 />
               </div>
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => {
-                  setShowFollowupModal(false)
-                  setSelectedProspect(null)
-                  setSelectedColumn("")
-                  setDraggedItem(null)
-                }}>
+                <Button
+                  variant="outline"
+                  disabled={followupSending}
+                  onClick={() => {
+                    setShowFollowupModal(false)
+                    setSelectedProspect(null)
+                    setSelectedColumn("")
+                    setDraggedItem(null)
+                  }}
+                >
                   Annuler
                 </Button>
-                <Button onClick={handleFollowupConfirm}>
-                  Envoyer la Relance
+                <Button
+                  onClick={() => void handleFollowupSend()}
+                  disabled={followupSending}
+                >
+                  {followupSending ? "Envoi…" : "Envoyer la Relance"}
                 </Button>
               </div>
             </CardContent>
@@ -318,4 +399,3 @@ export function CRMPipeline() {
     </div>
   )
 }
-

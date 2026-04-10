@@ -22,7 +22,9 @@ import { DEVIS_STATUS_OPTIONS, TVA_OPTIONS } from "@/types/devis";
 import { DevisPreview } from "@/components/devis/DevisPreview";
 import { DevisPdfDocument } from "@/components/devis/DevisPdfDocument";
 import { useChantiers } from "@/context/ChantiersContext";
-import { Copy, Download, Eye, FileText, Plus, Save, Settings, Trash2 } from "lucide-react";
+import { useFactures } from "@/hooks/useFactures";
+import { useLocation } from "wouter";
+import { Copy, Download, Eye, FileText, Plus, Receipt, Save, Settings, Trash2, Wand2 } from "lucide-react";
 
 type ModuleView = "dashboard" | "new" | "settings";
 
@@ -112,8 +114,10 @@ function statusClasses(status: StatutDevis): string {
 
 export default function QuotesPage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const { clients, addClient } = useChantiers();
   const { devisList, saveDevis, deleteDevis: removeDevis, getNextNumeroDevis } = useDevis();
+  const { factures, saveFacture } = useFactures();
   const { profile, saveProfile: saveProfileToDb } = useProfilEntreprise();
   const [activeView, setActiveView] = useState<ModuleView>("dashboard");
   const [editingDevisId, setEditingDevisId] = useState<string | null>(null);
@@ -300,6 +304,50 @@ export default function QuotesPage() {
     toast({ title: "Devis duplique", description: `${copy.numero} cree.` });
   };
 
+  const convertToFacture = async (devis: Devis) => {
+    // Générer le prochain numéro de facture
+    const year = new Date().getFullYear();
+    const prefix = `FAC-${year}-`;
+    const nums = factures
+      .map((f) => f.numero)
+      .filter((n) => n.startsWith(prefix))
+      .map((n) => parseInt(n.slice(prefix.length), 10))
+      .filter((n) => !isNaN(n));
+    const max = nums.length > 0 ? Math.max(...nums) : 0;
+    const numero = `${prefix}${String(max + 1).padStart(3, "0")}`;
+
+    // Trouver le clientId à partir du nom du client du devis
+    const matchedClient = clients.find(
+      (c) => c.name.toLowerCase() === devis.client.nom.toLowerCase()
+    );
+
+    const today = new Date().toISOString().split("T")[0];
+    const echeance = new Date();
+    echeance.setDate(echeance.getDate() + 30);
+
+    const { error } = await saveFacture({
+      numero,
+      devisId: devis.id,
+      clientId: matchedClient?.id,
+      dateEmission: today,
+      dateEcheance: echeance.toISOString().split("T")[0],
+      statut: "non_payee",
+      lignes: devis.lignes,
+      tvaTaux: 8.1,
+      montantHT: devis.sousTotalHT,
+      montantTVA: devis.montantTVA,
+      montantTTC: devis.totalTTC,
+      notes: `Facture issue du devis ${devis.numero}`,
+    });
+
+    if (error) {
+      toast({ title: "Erreur", description: error.message });
+      return;
+    }
+    toast({ title: "Facture creee", description: `${numero} generee depuis ${devis.numero}` });
+    setLocation("/dashboard/payments");
+  };
+
   const deleteDevis = async (id: string) => {
     if (!window.confirm("Supprimer ce devis ?")) return;
     await removeDevis(id);
@@ -408,7 +456,30 @@ export default function QuotesPage() {
 
       <main className="flex-1 overflow-auto px-3 py-3 md:px-6 md:py-6">
         {activeView === "dashboard" && (
-          <Card className="bg-black/20 border-white/10 text-white">
+          <div className="space-y-6">
+            <Card className="bg-black/20 border border-white/10 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 rounded-lg bg-blue-500/20">
+                  <Wand2 className="w-5 h-5 text-blue-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-white">
+                  Création de Devis par Robot IA
+                </h2>
+              </div>
+              <p className="text-sm text-white/50 mb-4">
+                Génère un devis complet en quelques secondes à partir des
+                informations de ton chantier. Modifiable avant envoi.
+              </p>
+              <button
+                type="button"
+                onClick={() => startNewDevis()}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+              >
+                <Wand2 className="w-4 h-4" />
+                Générer un Devis avec l'IA
+              </button>
+            </Card>
+            <Card className="bg-black/20 border-white/10 text-white">
             <CardHeader>
               <CardTitle>Liste des devis</CardTitle>
             </CardHeader>
@@ -429,6 +500,9 @@ export default function QuotesPage() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" onClick={() => editExistingDevis(devis)}><Eye className="mr-1 h-4 w-4" /> Voir</Button>
                       <Button size="sm" variant="outline" onClick={() => duplicateDevis(devis)}><Copy className="mr-1 h-4 w-4" /> Dupliquer</Button>
+                      {devis.statut === "accepte" && (
+                        <Button size="sm" variant="outline" className="text-green-400 border-green-400/30 hover:bg-green-400/10" onClick={() => convertToFacture(devis)}><Receipt className="mr-1 h-4 w-4" /> Facturer</Button>
+                      )}
                       <Button size="sm" variant="outline" onClick={() => openPdfPreview(devis)}><Eye className="mr-1 h-4 w-4" /> Apercu PDF</Button>
                       <Button size="sm" variant="outline" onClick={() => directDownloadPdf(devis)}><Download className="mr-1 h-4 w-4" /> Exporter PDF</Button>
                       <Button size="sm" variant="destructive" onClick={() => deleteDevis(devis.id)}><Trash2 className="mr-1 h-4 w-4" /> Supprimer</Button>
@@ -438,6 +512,7 @@ export default function QuotesPage() {
               )}
             </CardContent>
           </Card>
+          </div>
         )}
 
         {activeView === "settings" && (

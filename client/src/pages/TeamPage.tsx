@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Plus, User, Mail, Phone, Trash2, Building, Key, Edit2 } from 'lucide-react';
+import { Users, Plus, User, Mail, Phone, Trash2, Building, Key, Edit2, Eye, EyeOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { fetchTeamMembers, createTeamMember, updateTeamMember, deleteTeamMember, type TeamMember } from '@/lib/supabase';
 import { Copy, Check } from 'lucide-react';
@@ -41,6 +41,7 @@ export default function TeamPage() {
     }
   };
 
+  const [showCodes, setShowCodes] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
@@ -204,10 +205,21 @@ export default function TeamPage() {
         {/* Membres de l'Équipe */}
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-white/70" />
-              Membres de l'Équipe
-            </CardTitle>
+            <div className="flex items-center justify-between w-full">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-white/70" />
+                Membres de l'Équipe
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCodes((v) => !v)}
+                className="text-white/60 hover:text-white hover:bg-white/10 text-xs gap-1.5"
+              >
+                {showCodes ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showCodes ? 'Masquer codes' : 'Afficher codes'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {loading ? (
@@ -247,7 +259,7 @@ export default function TeamPage() {
                           )}
                           <div className="flex items-center gap-1 text-xs text-white/60">
                             <Key className="h-3 w-3" />
-                            <span className="font-mono">{member.login_code}</span>
+                            <span className="font-mono">{showCodes ? member.login_code : '••••••'}</span>
                           </div>
                         </div>
                       </div>

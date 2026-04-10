@@ -185,6 +185,7 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
             facturesAssociees: chantierData.facturesAssociees,
             documentsUploades: chantierData.documentsUploades,
           }}
+          clientId={chantierData.clientId}
           onSave={async (updated) => {
             setChantierData((prev) => ({ ...prev, ...updated }));
             const { error } = await updateChantier(id, {

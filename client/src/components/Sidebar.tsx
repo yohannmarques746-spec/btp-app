@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import {
   Home,
   FileText,
-  Wand2,
   X,
   User,
   Users,
@@ -16,6 +15,7 @@ import {
   Euro
 } from 'lucide-react';
 import AccountDialog from './AccountDialog';
+import { GlobalSearch } from './GlobalSearch';
 import { useMobileSidebar } from '../contexts/MobileSidebarContext';
 
 export function openMobileSidebar() {}
@@ -45,12 +45,6 @@ export default function Sidebar() {
     { icon: User, label: 'Clients', path: '/dashboard/clients', active: location === '/dashboard/clients' },
   ];
 
-  const quickActions = [
-    { icon: FileText, label: 'Nouveau Devis', action: () => console.log('New quote') },
-    { icon: Wand2, label: 'Visualiser Projet', action: () => console.log('Visualize project') },
-    { icon: Building, label: 'Ajouter Chantier', action: () => console.log('Add project') },
-  ];
-
   const sidebarContent = (
     <>
       <div className="p-4 border-b border-white/10">
@@ -59,6 +53,12 @@ export default function Sidebar() {
           <span className="text-xs text-white/70 italic">Construire pour durer</span>
         </div>
       </div>
+
+      {!collapsed && (
+        <div className="px-4 pt-3">
+          <GlobalSearch />
+        </div>
+      )}
 
       <nav className="flex-1 p-4 space-y-2">
         {!collapsed && (
@@ -84,31 +84,6 @@ export default function Sidebar() {
             </Button>
           </Link>
         ))}
-
-        {!collapsed && (
-          <>
-            <div className="text-xs font-medium text-white/60 uppercase tracking-wide mt-8 mb-4">
-              Actions Rapides
-            </div>
-
-            {quickActions.map((action, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                size="sm"
-                className="w-full justify-start gap-3 h-9 text-white border-white/20 hover:bg-white/10"
-                onClick={() => {
-                  action.action();
-                  close();
-                }}
-                data-testid={`quick-${action.label.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <action.icon className="h-4 w-4" />
-                <span>{action.label}</span>
-              </Button>
-            ))}
-          </>
-        )}
       </nav>
 
       <div className="p-4 border-t border-white/10 mt-auto">
@@ -163,6 +138,10 @@ export default function Sidebar() {
           >
             <X size={20} strokeWidth={2} />
           </button>
+        </div>
+
+        <div className="px-3 pt-2">
+          <GlobalSearch />
         </div>
 
         <nav className="flex-1 p-3 space-y-2">

@@ -5,8 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { User, Plus, Building, Mail, Phone, Image as ImageIcon, Pencil, FileText } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { User, Plus, Building, Mail, Phone, Image as ImageIcon, Pencil, FileText, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useChantiers, Client, Chantier } from '@/context/ChantiersContext';
 import { formatCHF } from '@/utils/chf';
@@ -43,6 +43,7 @@ export default function ClientsPage() {
   const [editingChantier, setEditingChantier] = useState<Chantier | null>(null);
   const [newClient, setNewClient] = useState({ ...emptyNewClientState });
   const [isSavingClient, setIsSavingClient] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -155,6 +156,21 @@ export default function ClientsPage() {
     setIsChantierEditDialogOpen(false);
     toast({ title: 'Enregistré avec succès' });
   };
+
+  const filteredClients = useMemo(() => {
+    const normalize = (str: string | null | undefined) =>
+      (str ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    const q = normalize(clientSearch);
+    if (!q) return clients;
+    return clients.filter((c) =>
+      [c.name, c.prenom, c.email, c.phone, c.localite, c.npa, c.adresse]
+        .some((field) => normalize(field ?? '').includes(q))
+    );
+  }, [clients, clientSearch]);
 
   return (
     <PageWrapper>
@@ -300,12 +316,39 @@ export default function ClientsPage() {
             </Button>
           )}
         </div>
+        {!selectedClient && (
+          <div className="relative w-full mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Rechercher par nom, prénom, email, téléphone, adresse…"
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white/30"
+            />
+            {clientSearch && (
+              <button
+                type="button"
+                onClick={() => setClientSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       <main className="flex-1 px-3 py-3 md:px-6 md:py-6">
         {!selectedClient ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {clients.map((client) => (
+          <>
+            {filteredClients.length === 0 && clientSearch && (
+              <div className="text-center text-white/40 py-12 text-sm">
+                Aucun client ne correspond à « {clientSearch} »
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredClients.map((client) => (
               <Card
                 key={client.id}
                 className="bg-black/20 backdrop-blur-xl border border-white/10 text-white hover:shadow-lg transition-shadow cursor-pointer"
@@ -340,6 +383,7 @@ export default function ClientsPage() {
               </Card>
             ))}
           </div>
+          </>
         ) : (
           <div>
             <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white mb-6">

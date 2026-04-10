@@ -22,6 +22,7 @@ import ClientsPage from "@/pages/ClientsPage";
 import CRMPipelinePage from "@/pages/CRMPipelinePage";
 import TeamPage from "@/pages/TeamPage";
 import PaymentsPage from "@/pages/PaymentsPage";
+import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
 import { MobileSidebarProvider } from "@/contexts/MobileSidebarContext";
 
@@ -89,6 +90,8 @@ function Router() {
         return <ProtectedRoute><TeamPage /></ProtectedRoute>;
       case "/dashboard/payments":
         return <ProtectedRoute><PaymentsPage /></ProtectedRoute>;
+      case "/dashboard/settings":
+        return <ProtectedRoute><SettingsPage /></ProtectedRoute>;
       default:
         return <NotFound />;
     }

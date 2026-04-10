@@ -1,16 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Edit3, FileText, Plus, Save, Trash2, X } from "lucide-react";
+import { Edit3, FileText, Plus, Save, Trash2, X, Euro } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ChantierDetails, DocumentLie } from "@/types/chantierDetails";
 import { useLocation } from "wouter";
+import { useFactures } from "@/hooks/useFactures";
+import { formatCHF } from "@/utils/chf";
 
 type DocumentsData = Pick<ChantierDetails, "devisAssocies" | "facturesAssociees" | "documentsUploades">;
 
 interface DocumentsSectionProps {
   data: DocumentsData;
+  clientId?: string;
   onSave: (next: DocumentsData) => void;
 }
 
@@ -20,9 +23,16 @@ interface DocumentsFormData {
   documentsUploades: DocumentLie[];
 }
 
-export function DocumentsSection({ data, onSave }: DocumentsSectionProps) {
+export function DocumentsSection({ data, clientId, onSave }: DocumentsSectionProps) {
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
+  const { factures: allFactures } = useFactures();
+
+  // Auto-detect factures linked to this chantier's client
+  const autoFactures = useMemo(() => {
+    if (!clientId) return [];
+    return allFactures.filter((f) => f.clientId === clientId);
+  }, [clientId, allFactures]);
   const [newDevis, setNewDevis] = useState("");
   const [newFacture, setNewFacture] = useState("");
   const [newDocument, setNewDocument] = useState("");
@@ -150,7 +160,7 @@ export function DocumentsSection({ data, onSave }: DocumentsSectionProps) {
             </div>
           )}
           <div className="mt-2 space-y-2">
-            {factures.length === 0 && <p className="text-sm text-white/60">Aucune facture</p>}
+            {factures.length === 0 && autoFactures.length === 0 && <p className="text-sm text-white/60">Aucune facture</p>}
             {factures.map((item) => (
               <div key={item.id} className="rounded border border-white/10 bg-black/20 p-2 text-sm text-white/90">
                 <div className="flex items-center justify-between gap-2">
@@ -169,6 +179,25 @@ export function DocumentsSection({ data, onSave }: DocumentsSectionProps) {
                 </div>
               </div>
             ))}
+            {autoFactures.length > 0 && (
+              <>
+                <p className="text-xs text-emerald-400/70 mt-2 flex items-center gap-1"><Euro className="h-3 w-3" /> Factures détectées pour ce client :</p>
+                {autoFactures.map((f) => (
+                  <div key={f.id} className="rounded border border-emerald-500/20 bg-emerald-500/5 p-2 text-sm text-white/90">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        className="text-left hover:underline"
+                        onClick={() => setLocation(`/dashboard/payments?factureRef=${encodeURIComponent(f.numero)}`)}
+                      >
+                        {f.numero}
+                      </button>
+                      <span className="text-xs text-white/50">{formatCHF(f.montantTTC)}</span>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         </div>
 
