@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,6 @@ import {
   Euro
 } from 'lucide-react';
 import AccountDialog from './AccountDialog';
-import { GlobalSearch } from './GlobalSearch';
 import { useMobileSidebar } from '../contexts/MobileSidebarContext';
 
 export function openMobileSidebar() {}
@@ -24,15 +23,6 @@ export default function Sidebar() {
   const [collapsed] = useState(false);
   const { isOpen, close } = useMobileSidebar();
   const [location] = useLocation();
-
-  useEffect(() => {
-    const drawer = document.querySelector('[data-debug-mobile-drawer="sidebar"]') as HTMLElement | null;
-    const overlay = document.querySelector('[data-debug-mobile-overlay="sidebar"]') as HTMLElement | null;
-    const drawerRect = drawer?.getBoundingClientRect();
-    // #region agent log
-    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'53795b'},body:JSON.stringify({sessionId:'53795b',runId:`run-${Date.now()}`,hypothesisId:'H2',location:'Sidebar.tsx:isOpen',message:'Sidebar mobile layer state',data:{isOpen,location,mdMatch:window.matchMedia('(min-width: 768px)').matches,drawerRect,drawerClasses:drawer?.className,overlayClasses:overlay?.className,drawerTransform:drawer?window.getComputedStyle(drawer).transform:null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [isOpen, location]);
 
   const menuItems = [
     { icon: Home, label: "Vue d'ensemble", path: '/dashboard', active: location === '/dashboard' },
@@ -47,20 +37,14 @@ export default function Sidebar() {
 
   const sidebarContent = (
     <>
-      <div className="p-4 border-b border-white/10">
+      <div className="p-4 border-b border-white/10 flex-none">
         <div className="flex flex-col">
           <span className="font-semibold text-white">CALDY</span>
           <span className="text-xs text-white/70 italic">Construire pour durer</span>
         </div>
       </div>
 
-      {!collapsed && (
-        <div className="px-4 pt-3">
-          <GlobalSearch />
-        </div>
-      )}
-
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 min-h-0 overflow-y-auto p-4 pt-3 space-y-2">
         {!collapsed && (
           <div className="text-xs font-medium text-white/60 uppercase tracking-wide mb-4">
             Navigation
@@ -86,7 +70,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/10 mt-auto">
+      <div className="p-4 border-t border-white/10 flex-none">
         <AccountDialog>
           <Button
             variant="ghost"
@@ -116,7 +100,6 @@ export default function Sidebar() {
       {/* OVERLAY mobile */}
       {isOpen && (
         <div
-          data-debug-mobile-overlay="sidebar"
           className="fixed inset-0 z-40 md:hidden bg-slate-900/60 backdrop-blur-sm"
           onClick={close}
           aria-hidden="true"
@@ -124,12 +107,13 @@ export default function Sidebar() {
       )}
 
       {/* DRAWER mobile */}
-      <div data-debug-mobile-drawer="sidebar" className={cn(
+      <div className={cn(
         'fixed inset-y-0 left-0 z-50 md:hidden transform transition-transform duration-300 ease-in-out bg-black/20 backdrop-blur-xl flex flex-col',
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      )} style={{ width: 280 }}>
-        <div className="flex items-center justify-between px-3 border-b border-white/10" style={{ height: 52 }}>
-          <span className="font-semibold text-sm text-white">Menu</span>
+      )} style={{ width: 280, paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-3 border-b border-white/10 flex-none" style={{ height: 52 }}>
+          <span className="font-semibold text-sm text-white">CALDY</span>
           <button
             onClick={close}
             className="flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation text-white"
@@ -140,11 +124,8 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <div className="px-3 pt-2">
-          <GlobalSearch />
-        </div>
-
-        <nav className="flex-1 p-3 space-y-2">
+        {/* Nav — scrollable */}
+        <nav className="flex-1 min-h-0 overflow-y-auto p-3 pt-3 space-y-2">
           {menuItems.map((item) => (
             <Link key={`mobile-${item.path}`} href={item.path}>
               <button
@@ -155,12 +136,26 @@ export default function Sidebar() {
                 style={{ height: 48, minHeight: 48 }}
                 onClick={close}
               >
-                <item.icon className="h-4 w-4" />
+                <item.icon className="h-4 w-4 flex-none" />
                 <span>{item.label}</span>
               </button>
             </Link>
           ))}
         </nav>
+
+        {/* Footer with Account — mirroring desktop */}
+        <div className="p-3 border-t border-white/10 flex-none">
+          <AccountDialog>
+            <button
+              className="flex items-center gap-3 px-3 rounded-xl text-sm font-medium transition-colors hover:bg-white/10 active:bg-white/20 touch-manipulation w-full text-white"
+              style={{ height: 48, minHeight: 48 }}
+              onClick={close}
+            >
+              <UserCircle className="h-4 w-4 flex-none" />
+              <span>Compte</span>
+            </button>
+          </AccountDialog>
+        </div>
       </div>
     </>
   );

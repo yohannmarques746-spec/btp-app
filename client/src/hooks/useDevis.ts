@@ -11,6 +11,7 @@ function normalizeStatus(value: string | null): Devis["statut"] {
 
 function mapRowToDevis(row: {
   id: string;
+  client_id?: string | null;
   numero: string;
   date_emission: string | null;
   date_validite: string | null;
@@ -48,6 +49,7 @@ function mapRowToDevis(row: {
 
   const mapped: Devis = {
     id: row.id,
+    clientId: row.client_id ?? undefined,
     numero: row.numero,
     dateEmission: row.date_emission ?? new Date().toISOString().slice(0, 10),
     dureeValidite: 30,
@@ -127,6 +129,7 @@ export function useDevis() {
       montant_devis: devis.montantDevis ?? null,
       emetteur: devis.emetteur,
       client: devis.client,
+      client_id: devis.clientId ?? null,
       updated_at: new Date().toISOString(),
     };
 

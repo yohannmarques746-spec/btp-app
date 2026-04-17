@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,8 +24,6 @@ import { formatCHF } from '@/utils/chf'
 
 export default function Dashboard() {
   const [location, setLocation] = useLocation();
-  const mainContainerRef = useRef<HTMLDivElement | null>(null);
-  const mainContentRef = useRef<HTMLElement | null>(null);
 
   // Vérifier si l'utilisateur est un membre d'équipe et rediriger
   useEffect(() => {
@@ -35,26 +33,14 @@ export default function Dashboard() {
     }
   }, [setLocation])
 
-  useEffect(() => {
-    const runId = `run-${Date.now()}`;
-    const mainRect = mainContainerRef.current?.getBoundingClientRect();
-    const contentRect = mainContentRef.current?.getBoundingClientRect();
-    const firstKpi = document.querySelector('.shadcn-card') as HTMLElement | null;
-    const firstKpiRect = firstKpi?.getBoundingClientRect();
-    // #region agent log
-    fetch('http://127.0.0.1:7281/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'53795b'},body:JSON.stringify({sessionId:'53795b',runId,hypothesisId:'H1',location:'Dashboard.tsx:mount',message:'Dashboard layout geometry snapshot',data:{innerWidth:window.innerWidth,innerHeight:window.innerHeight,docClientWidth:document.documentElement.clientWidth,bodyScrollWidth:document.body.scrollWidth,mdMatch:window.matchMedia('(min-width: 768px)').matches,mainRect,contentRect,firstKpiRect,currentLocation:location},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [location]);
-  
   return (
-    <div className="flex min-h-screen relative md:overflow-hidden">
+    <div className="flex min-h-screen relative overflow-x-hidden md:overflow-hidden">
       {/* Sidebar - now fixed, no animation */}
       <Sidebar />
 
       {/* Main Content - animated */}
       <AnimatePresence mode="wait">
         <motion.div
-          ref={mainContainerRef}
           key={location}
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -62,16 +48,15 @@ export default function Dashboard() {
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="flex-1 flex flex-col relative z-10 ml-0 md:ml-64 md:rounded-l-3xl min-h-screen md:overflow-hidden"
         >
-        <MobileHeader title="Tableau de bord" />
-        <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 md:rounded-tl-3xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-bold md:text-2xl text-white">
-                Dashboard CALDY
-              </h1>
-              <p className="text-sm text-white/70">Construire pour durer</p>
-            </div>
-            <div className="flex items-center gap-4">
+          <MobileHeader title="Tableau de bord" />
+
+          {/* Page header — hidden on mobile (MobileHeader handles title + nav drawer) */}
+          <header className="hidden md:block bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 md:rounded-tl-3xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Dashboard CALDY</h1>
+                <p className="text-sm text-white/70">Construire pour durer</p>
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -83,81 +68,92 @@ export default function Dashboard() {
                 Paramètres
               </Button>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Tabs Navigation */}
-        <div className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 md:rounded-tl-3xl">
-          <div className="flex gap-2 overflow-x-auto">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation('/dashboard')}
-              className={location === '/dashboard' ? 'bg-white/20 backdrop-blur-md border border-white/10 text-white hover:bg-white/30' : 'text-white hover:bg-white/10'}
+          {/* Mobile-only settings shortcut in the tab bar area */}
+          <div className="md:hidden flex items-center justify-end px-3 py-1 bg-black/10 border-b border-white/5">
+            <button
+              onClick={() => setLocation('/dashboard/settings')}
+              className="flex items-center gap-1.5 text-xs text-white/60 hover:text-white/90 touch-manipulation py-1 px-2 rounded-lg hover:bg-white/10 transition-colors"
+              style={{ minHeight: 36 }}
             >
-              Vue d'ensemble
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation('/dashboard/quotes')}
-              className="text-white hover:bg-white/10"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Devis
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation('/dashboard/projects')}
-              className="text-white hover:bg-white/10"
-            >
-              <Building className="h-4 w-4 mr-2" />
-              Chantiers
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation('/dashboard/crm')}
-              className="text-white hover:bg-white/10"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              CRM Pipeline
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation('/dashboard/planning')}
-              className="text-white hover:bg-white/10"
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              Planning
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation('/dashboard/payments')}
-              className="text-white hover:bg-white/10"
-            >
-              <Euro className="h-4 w-4 mr-2" />
-              Bilan Financier
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation('/dashboard/team')}
-              className="text-white hover:bg-white/10"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Équipe
-            </Button>
+              <Settings className="h-3.5 w-3.5" />
+              <span>Paramètres</span>
+            </button>
           </div>
-        </div>
 
-        {/* Tab Content */}
-        <main ref={mainContentRef} className="flex-1 px-3 py-3 pb-[env(safe-area-inset-bottom)] md:px-6 md:py-6 space-y-6 overflow-auto">
-          <OverviewTab />
-        </main>
+          {/* Tabs Navigation — horizontal scroll, tall enough to tap comfortably */}
+          <div className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-2 md:px-6">
+            <div className="flex gap-1 overflow-x-auto scrollbar-none py-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/dashboard')}
+                className={`min-h-[44px] md:min-h-0 whitespace-nowrap ${location === '/dashboard' ? 'bg-white/20 backdrop-blur-md border border-white/10 text-white hover:bg-white/30' : 'text-white hover:bg-white/10'}`}
+              >
+                Vue d'ensemble
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/dashboard/quotes')}
+                className="min-h-[44px] md:min-h-0 whitespace-nowrap text-white hover:bg-white/10"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Devis
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/dashboard/projects')}
+                className="min-h-[44px] md:min-h-0 whitespace-nowrap text-white hover:bg-white/10"
+              >
+                <Building className="h-4 w-4 mr-2" />
+                Chantiers
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/dashboard/crm')}
+                className="min-h-[44px] md:min-h-0 whitespace-nowrap text-white hover:bg-white/10"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                CRM
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/dashboard/planning')}
+                className="min-h-[44px] md:min-h-0 whitespace-nowrap text-white hover:bg-white/10"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Planning
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/dashboard/payments')}
+                className="min-h-[44px] md:min-h-0 whitespace-nowrap text-white hover:bg-white/10"
+              >
+                <Euro className="h-4 w-4 mr-2" />
+                Finances
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/dashboard/team')}
+                className="min-h-[44px] md:min-h-0 whitespace-nowrap text-white hover:bg-white/10"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Équipe
+              </Button>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <main className="flex-1 px-3 py-3 pb-[env(safe-area-inset-bottom)] md:px-6 md:py-6 space-y-6 overflow-auto">
+            <OverviewTab />
+          </main>
         </motion.div>
       </AnimatePresence>
     </div>

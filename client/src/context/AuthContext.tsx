@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ data: { user: User | null } | null; error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -75,7 +75,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
 
-    return { error };
+    // Mettre à jour user/session immédiatement — sans attendre onAuthStateChange
+    // pour éviter la race condition dans ProtectedRoute
+    if (!error && data.user) {
+      setUser(data.user);
+      setSession(data.session);
+    }
+
+    return { data: data ? { user: data.user } : null, error };
   };
 
   const signOut = async () => {

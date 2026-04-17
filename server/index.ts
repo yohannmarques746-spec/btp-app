@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -80,10 +80,12 @@ app.use((req, res, next) => {
     listenOptions.reusePort = true;
   }
 
-  // Handle server errors gracefully
   server.on("error", (err: any) => {
     if (err.code === "EADDRINUSE") {
-      log(`Port ${finalPort} is already in use`, "server");
+      log(
+        `Port ${finalPort} is already in use (often another "npm run dev"). Stop it: macOS "lsof -nP -iTCP:${finalPort} -sTCP:LISTEN" then kill the PID, or change PORT in .env.`,
+        "server",
+      );
     } else {
       log(`server listen error: ${err?.code || err?.message}`, "server");
     }

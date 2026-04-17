@@ -9,7 +9,6 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AnimatePresence, motion } from "framer-motion";
 import Home from "@/pages/Home";
-import AuthPage from "@/pages/AuthPage";
 import LoginPage from "@/pages/LoginPage";
 import InvitePage from "@/pages/InvitePage";
 import TeamDashboard from "@/pages/TeamDashboard";
@@ -21,6 +20,8 @@ import PlanningPage from "@/pages/PlanningPage";
 import ClientsPage from "@/pages/ClientsPage";
 import CRMPipelinePage from "@/pages/CRMPipelinePage";
 import TeamPage from "@/pages/TeamPage";
+import TeamMemberLogin from "@/pages/TeamMemberLogin";
+import TeamMemberDashboard from "@/pages/TeamMemberDashboard";
 import PaymentsPage from "@/pages/PaymentsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
@@ -67,7 +68,6 @@ function Router() {
       case "/":
         return <Home />;
       case "/auth":
-        return <AuthPage />;
       case "/login":
         return <LoginPage />;
       case "/team-dashboard":
@@ -92,13 +92,19 @@ function Router() {
         return <ProtectedRoute><PaymentsPage /></ProtectedRoute>;
       case "/dashboard/settings":
         return <ProtectedRoute><SettingsPage /></ProtectedRoute>;
+      // Routes membres équipe — pas de guard Supabase
+      case "/team-members-login":
+        return <TeamMemberLogin />;
+      case "/team-members-dash":
+        return <TeamMemberDashboard />;
       default:
         return <NotFound />;
     }
   };
 
   // Pages without sidebar (Home, Auth, Login, Invite) get full page animation
-  const isFullPage = location === "/" || location === "/auth" || location === "/login" || location.startsWith("/invite/");
+  const fullPageRoutes = new Set(["/", "/auth", "/login", "/team-members-login", "/team-members-dash"]);
+  const isFullPage = fullPageRoutes.has(location) || location.startsWith("/invite/");
 
   if (isFullPage) {
     return (

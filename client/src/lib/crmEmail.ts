@@ -30,7 +30,24 @@ export async function sendCrmEmail(
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    const text = await res.text();
+    let message = text;
+    if (text.trimStart().startsWith("{")) {
+      try {
+        const j = JSON.parse(text) as {
+          error?: string;
+          detail?: string;
+          field?: string;
+        };
+        const parts = [j.error, j.detail, j.field ? `champ : ${j.field}` : ""].filter(
+          Boolean,
+        );
+        message = parts.join(" — ") || text;
+      } catch {
+        /* garder le corps brut */
+      }
+    }
+    throw new Error(message);
   }
 
   return res.json() as Promise<{ id: string }>;

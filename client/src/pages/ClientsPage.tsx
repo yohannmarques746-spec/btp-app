@@ -173,7 +173,7 @@ export default function ClientsPage() {
   }, [clients, clientSearch]);
 
   return (
-    <PageWrapper>
+    <PageWrapper mobileTitle="Clients">
       <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 rounded-tl-3xl">
         <div className="flex items-center justify-between">
           <div>

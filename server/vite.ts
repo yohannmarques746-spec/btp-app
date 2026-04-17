@@ -1,7 +1,11 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
+import {
+  createServer as createViteServer,
+  createLogger,
+  mergeConfig,
+} from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
@@ -34,19 +38,26 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true as const,
   };
 
-  const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
+  const repoRoot = path.resolve(import.meta.dirname, "..");
+
+  const vite = await createViteServer(
+    mergeConfig(viteConfig, {
+      configFile: false,
+      envDir: repoRoot,
+      customLogger: {
+        ...viteLogger,
+        error: (msg: string, options?: { error?: Error }) => {
+          viteLogger.error(msg, options);
+          process.exit(1);
+        },
       },
-    },
-    server: serverOptions,
-    appType: "custom",
-  });
+      server: {
+        ...viteConfig.server,
+        ...serverOptions,
+      },
+      appType: "custom",
+    }),
+  );
 
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {

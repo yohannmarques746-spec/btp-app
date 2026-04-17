@@ -1,4 +1,5 @@
 import { useState, useEffect, ReactNode } from 'react';
+import { useLocation } from 'wouter';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Mail, User as UserIcon, Briefcase, Phone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Mail, User as UserIcon, Briefcase, Phone, LogOut, Loader2 } from 'lucide-react';
 import type { TeamMember } from '@/lib/supabase';
 
 interface AccountDialogProps {
@@ -19,9 +21,11 @@ interface AccountDialogProps {
 }
 
 export default function AccountDialog({ children }: AccountDialogProps) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const [, setLocation] = useLocation();
   const [teamMember, setTeamMember] = useState<TeamMember | null>(null);
   const [userType, setUserType] = useState<'admin' | 'team' | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     // Récupérer le type d'utilisateur et les informations
@@ -65,6 +69,19 @@ export default function AccountDialog({ children }: AccountDialogProps) {
   const displayRole = userType === 'team' && teamMember 
     ? teamMember.role 
     : 'Administrateur';
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      localStorage.removeItem('teamMember');
+      localStorage.removeItem('userType');
+      localStorage.removeItem('member-session-token');
+      await signOut();
+      setLocation('/login');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <Dialog>
@@ -159,6 +176,28 @@ export default function AccountDialog({ children }: AccountDialogProps) {
               </CardContent>
             </Card>
           </div>
+
+          <Separator className="bg-white/10" />
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full h-11 touch-manipulation border-white/25 text-white hover:bg-white/10"
+            disabled={loggingOut}
+            onClick={handleLogout}
+          >
+            {loggingOut ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Déconnexion…
+              </>
+            ) : (
+              <>
+                <LogOut className="mr-2 h-4 w-4" />
+                Se déconnecter
+              </>
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

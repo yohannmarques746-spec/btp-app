@@ -42,6 +42,8 @@ export interface LignePrestation {
 
 export interface Devis {
   id: string;
+  /** Référence clients (Supabase) — expose client_id côté API */
+  clientId?: string;
   numero: string;
   dateEmission: string;
   dureeValidite: number;

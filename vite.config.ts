@@ -1,9 +1,14 @@
+import { loadAppEnv, viteImportMetaEnvDefine } from "./load-app-env";
+
+loadAppEnv(import.meta.dirname);
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
+  define: viteImportMetaEnvDefine(),
   plugins: [
     react(),
     runtimeErrorOverlay(),
@@ -24,6 +29,8 @@ export default defineConfig({
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
+  /** Charge `.env` à la racine du repo (sinon Vite ne lit que `client/.env`). */
+  envDir: path.resolve(import.meta.dirname),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
