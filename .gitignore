@@ -15,4 +15,3 @@ client/.env.local
 # Outils / caches locaux
 .npm-cache/
 .cursor/*.log
-package-lock.json
