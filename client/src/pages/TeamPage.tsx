@@ -170,11 +170,14 @@ function MemberCard({ member, onDeleted }: { member: Member; onDeleted: () => vo
       toast({ title: 'PIN invalide', description: '4 chiffres requis', variant: 'destructive' });
       return;
     }
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { toast({ title: 'Session expirée', variant: 'destructive' }); return; }
     setSavingPin(true);
     try {
       const res = await fetch(`/api/team/members/${member.id}/pin`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ pin: newPin, ownerId: OWNER_ID || member.user_id }),
       });
       const data = await res.json();
@@ -511,6 +514,11 @@ export default function TeamPage() {
     if (ownerId) loadMembers();
   }, [ownerId]);
 
+  const getAuthToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+  };
+
   const handleAddMember = async () => {
     if (!newName.trim()) { toast({ title: 'Nom requis', variant: 'destructive' }); return; }
     if (!/^\d{4}$/.test(newPin)) {
@@ -518,11 +526,14 @@ export default function TeamPage() {
       return;
     }
 
+    const token = await getAuthToken();
+    if (!token) { toast({ title: 'Session expirée', variant: 'destructive' }); return; }
+
     setAdding(true);
     try {
       const res = await fetch('/api/team/members', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: newName.trim(), pin: newPin, role: newRole, ownerId }),
       });
       const data = await res.json();

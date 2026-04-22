@@ -114,10 +114,17 @@ router.get("/me", async (req: Request, res: Response) => {
 
 // ─── POST /api/team/members ───────────────────────────────────────────────────
 router.post("/members", async (req: Request, res: Response) => {
+  const user = await getSupabaseUser(req);
+  if (!user) return res.status(401).json({ error: "Non autorisé" });
+
   const { name, pin, role, ownerId } = req.body as {
     name?: string; pin?: string; role?: string; ownerId?: string;
   };
   if (!name || !pin || !ownerId) return res.status(400).json({ error: "name, pin et ownerId requis" });
+  if (user.id !== ownerId) {
+    const { data } = await supabaseServer.rpc("is_co_owner", { p_owner_id: ownerId, p_user_id: user.id });
+    if (!data) return res.status(403).json({ error: "Accès refusé" });
+  }
   if (!isValidPin(pin)) return res.status(400).json({ error: "Le PIN doit être 4 chiffres" });
 
   try {
@@ -138,9 +145,16 @@ router.post("/members", async (req: Request, res: Response) => {
 
 // ─── PATCH /api/team/members/:id/pin ─────────────────────────────────────────
 router.patch("/members/:id/pin", async (req: Request, res: Response) => {
+  const user = await getSupabaseUser(req);
+  if (!user) return res.status(401).json({ error: "Non autorisé" });
+
   const { id } = req.params;
   const { pin, ownerId } = req.body as { pin?: string; ownerId?: string };
   if (!pin || !ownerId) return res.status(400).json({ error: "pin et ownerId requis" });
+  if (user.id !== ownerId) {
+    const { data } = await supabaseServer.rpc("is_co_owner", { p_owner_id: ownerId, p_user_id: user.id });
+    if (!data) return res.status(403).json({ error: "Accès refusé" });
+  }
   if (!isValidPin(pin)) return res.status(400).json({ error: "Le PIN doit être 4 chiffres" });
 
   try {

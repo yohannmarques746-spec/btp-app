@@ -2,11 +2,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 
-// #region agent log
-let __dbgSignUpSeq = 0;
-let __dbgLastSignUpAt = 0;
-// #endregion
-
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -45,25 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     const normalizedEmail = email.trim().toLowerCase();
-    // #region agent log
-    const now = Date.now();
-    const seq = ++__dbgSignUpSeq;
-    const deltaMs = __dbgLastSignUpAt ? now - __dbgLastSignUpAt : -1;
-    __dbgLastSignUpAt = now;
-    fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b01c17' },
-      body: JSON.stringify({
-        sessionId: 'b01c17',
-        runId: 'pre-fix',
-        hypothesisId: 'H1',
-        location: 'AuthContext.tsx:signUp:entry',
-        message: 'signUp invoked',
-        data: { seq, deltaMsSincePrev: deltaMs, emailLen: normalizedEmail.length },
-        timestamp: now,
-      }),
-    }).catch(() => {});
-    // #endregion
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -73,28 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     });
-
-    // #region agent log
-    fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b01c17' },
-      body: JSON.stringify({
-        sessionId: 'b01c17',
-        runId: 'pre-fix',
-        hypothesisId: 'H2',
-        location: 'AuthContext.tsx:signUp:afterSupabase',
-        message: 'signUp supabase response',
-        data: {
-          seq: __dbgSignUpSeq,
-          hasError: !!error,
-          errName: error?.name ?? null,
-          errMsgPrefix: error?.message ? String(error.message).slice(0, 120) : null,
-          statusFromErr: (error as { status?: number })?.status ?? null,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
 
     if (!error && data.user) {
       // Créer le profil utilisateur

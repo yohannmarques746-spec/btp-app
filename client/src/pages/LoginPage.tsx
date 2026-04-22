@@ -241,21 +241,6 @@ function SignUpForm({ emailPlaceholder }: { emailPlaceholder: string }) {
     if (!email || !password || !fullName) { setError("Veuillez remplir tous les champs"); return }
     setLoading(true)
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b01c17' },
-        body: JSON.stringify({
-          sessionId: 'b01c17',
-          runId: 'pre-fix',
-          hypothesisId: 'H4',
-          location: 'LoginPage.tsx:SignUpForm:handleSubmit',
-          message: 'before signUp (LoginPage)',
-          data: { emailFieldLen: email.trim().length },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       const { error } = await signUp(email, password, fullName)
       if (error) {
         setError(formatSupabaseAuthError(error, "Erreur lors de la création du compte"))
@@ -360,6 +345,8 @@ export default function LoginPage() {
 
   const colors = ["#0a1a3f", "#173a8a", "#2563eb", "#3b82f6", "#4338ca", "#111827"]
   const isOwner = !OWNER_ID || user?.id === OWNER_ID
+  // Si OWNER_ID est défini, la création de compte n'a aucun sens (seul le propriétaire peut se connecter)
+  const allowSignUp = !OWNER_ID
 
   // Redirection si déjà connecté en tant que propriétaire
   useEffect(() => {
@@ -425,25 +412,27 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="relative grid grid-cols-2 gap-1 p-1 rounded-2xl bg-white/5 border border-white/10 mb-6" role="tablist">
-            <TabButton
-              active={mode === "signIn"}
-              onClick={() => setMode("signIn")}
-              icon={<LogIn className="h-4 w-4" />}
-              label="Connexion"
-            />
-            <TabButton
-              active={mode === "signUp"}
-              onClick={() => setMode("signUp")}
-              icon={<UserPlus className="h-4 w-4" />}
-              label="Créer un compte"
-            />
-          </div>
+          {allowSignUp && (
+            <div className="relative grid grid-cols-2 gap-1 p-1 rounded-2xl bg-white/5 border border-white/10 mb-6" role="tablist">
+              <TabButton
+                active={mode === "signIn"}
+                onClick={() => setMode("signIn")}
+                icon={<LogIn className="h-4 w-4" />}
+                label="Connexion"
+              />
+              <TabButton
+                active={mode === "signUp"}
+                onClick={() => setMode("signUp")}
+                icon={<UserPlus className="h-4 w-4" />}
+                label="Créer un compte"
+              />
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
-            {mode === "signIn"
-              ? <SignInForm key="signin" onSuccess={() => setLocation("/dashboard")} emailPlaceholder={brandEmailPlaceholder} />
-              : <SignUpForm key="signup" emailPlaceholder={brandEmailPlaceholder} />
+            {allowSignUp && mode === "signUp"
+              ? <SignUpForm key="signup" emailPlaceholder={brandEmailPlaceholder} />
+              : <SignInForm key="signin" onSuccess={() => setLocation("/dashboard")} emailPlaceholder={brandEmailPlaceholder} />
             }
           </AnimatePresence>
         </div>

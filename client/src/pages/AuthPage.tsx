@@ -53,21 +53,6 @@ export default function AuthPage() {
           setLoading(false)
           return
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b01c17' },
-          body: JSON.stringify({
-            sessionId: 'b01c17',
-            runId: 'pre-fix',
-            hypothesisId: 'H4',
-            location: 'AuthPage.tsx:handleSubmit',
-            message: 'before signUp (AuthPage)',
-            data: { emailFieldLen: email.trim().length },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         const { error } = await signUp(email, password, fullName)
         if (error) {
           setError(formatSupabaseAuthError(error, "Erreur lors de la création du compte"))
