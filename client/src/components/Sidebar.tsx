@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import AccountDialog from './AccountDialog';
 import { useMobileSidebar } from '../contexts/MobileSidebarContext';
+import { useBranding } from '@/hooks/useBranding';
 
 export function openMobileSidebar() {}
 
@@ -23,6 +24,7 @@ export default function Sidebar() {
   const [collapsed] = useState(false);
   const { isOpen, close } = useMobileSidebar();
   const [location] = useLocation();
+  const { brandName, brandTagline, brandLogoUrl } = useBranding();
 
   const menuItems = [
     { icon: Home, label: "Vue d'ensemble", path: '/dashboard', active: location === '/dashboard' },
@@ -39,8 +41,17 @@ export default function Sidebar() {
     <>
       <div className="p-4 border-b border-white/10 flex-none">
         <div className="flex flex-col">
-          <span className="font-semibold text-white">CALDY</span>
-          <span className="text-xs text-white/70 italic">Construire pour durer</span>
+          <div className="flex items-center gap-2">
+            {brandLogoUrl ? (
+              <img
+                src={brandLogoUrl}
+                alt={`Logo ${brandName}`}
+                className="h-6 w-6 rounded object-cover border border-white/20"
+              />
+            ) : null}
+            <span className="font-semibold text-white truncate">{brandName}</span>
+          </div>
+          {brandTagline ? <span className="text-xs text-white/70 italic truncate">{brandTagline}</span> : null}
         </div>
       </div>
 
@@ -113,7 +124,16 @@ export default function Sidebar() {
       )} style={{ width: 280, paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* Drawer header */}
         <div className="flex items-center justify-between px-3 border-b border-white/10 flex-none" style={{ height: 52 }}>
-          <span className="font-semibold text-sm text-white">CALDY</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {brandLogoUrl ? (
+              <img
+                src={brandLogoUrl}
+                alt={`Logo ${brandName}`}
+                className="h-5 w-5 rounded object-cover border border-white/20"
+              />
+            ) : null}
+            <span className="font-semibold text-sm text-white truncate">{brandName}</span>
+          </div>
           <button
             onClick={close}
             className="flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation text-white"

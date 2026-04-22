@@ -21,9 +21,11 @@ import { useChantiers } from '@/context/ChantiersContext'
 import { useFactures } from '@/hooks/useFactures'
 import { useDevis } from '@/hooks/useDevis'
 import { formatCHF } from '@/utils/chf'
+import { useBranding } from '@/hooks/useBranding'
 
 export default function Dashboard() {
   const [location, setLocation] = useLocation();
+  const { brandName, brandTagline } = useBranding();
 
   // Vérifier si l'utilisateur est un membre d'équipe et rediriger
   useEffect(() => {
@@ -54,8 +56,8 @@ export default function Dashboard() {
           <header className="hidden md:block bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 md:rounded-tl-3xl">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-white">Dashboard CALDY</h1>
-                <p className="text-sm text-white/70">Construire pour durer</p>
+                <h1 className="text-2xl font-bold text-white">Dashboard {brandName}</h1>
+                {brandTagline ? <p className="text-sm text-white/70">{brandTagline}</p> : null}
               </div>
               <Button
                 type="button"

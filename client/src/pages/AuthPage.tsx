@@ -7,6 +7,8 @@ import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabaseClient"
 import { Mail, Lock, User } from "lucide-react"
 import { Label } from "@/components/ui/label"
+import { useBranding } from "@/hooks/useBranding"
+import { formatSupabaseAuthError } from "@/lib/authErrors"
 
 export default function AuthPage() {
   const [dimensions, setDimensions] = useState({ width: 1920, height: 1080 })
@@ -21,6 +23,7 @@ export default function AuthPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null)
   const { signUp, signIn, user } = useAuth()
+  const { brandName } = useBranding()
   const [, setLocation] = useLocation()
 
   const colors = ["#05070f", "#0b1324", "#111827", "#1f2937", "#1e3a8a", "#0f172a"]
@@ -50,9 +53,24 @@ export default function AuthPage() {
           setLoading(false)
           return
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b01c17' },
+          body: JSON.stringify({
+            sessionId: 'b01c17',
+            runId: 'pre-fix',
+            hypothesisId: 'H4',
+            location: 'AuthPage.tsx:handleSubmit',
+            message: 'before signUp (AuthPage)',
+            data: { emailFieldLen: email.trim().length },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         const { error } = await signUp(email, password, fullName)
         if (error) {
-          setError(error.message || "Erreur lors de la création du compte")
+          setError(formatSupabaseAuthError(error, "Erreur lors de la création du compte"))
         } else {
           setInfo("Compte créé. Vérifiez votre email pour confirmer le compte avant de vous connecter.")
           setPendingConfirmationEmail(email.trim().toLowerCase())
@@ -71,7 +89,7 @@ export default function AuthPage() {
           if (isInvalidCredentials) {
             setError("Identifiants invalides. Si le compte vient d'être créé, confirmez d'abord l'email puis réessayez.")
           } else {
-            setError(rawMessage || "Email ou mot de passe incorrect")
+            setError(formatSupabaseAuthError(error, rawMessage || "Email ou mot de passe incorrect"))
           }
         } else {
           // Rediriger vers la page de login avec code
@@ -100,7 +118,12 @@ export default function AuthPage() {
       },
     })
     if (resendError) {
-      setError(resendError.message || "Impossible de renvoyer l'email de confirmation.")
+      setError(
+        formatSupabaseAuthError(
+          resendError,
+          resendError.message || "Impossible de renvoyer l'email de confirmation."
+        )
+      )
       setResendLoading(false)
       return
     }
@@ -137,8 +160,8 @@ export default function AuthPage() {
             </h1>
             <p className="text-white/80 text-sm">
               {isSignUp 
-                ? "Créez votre compte pour accéder à votre application CALDY"
-                : "Connectez-vous à votre compte CALDY"}
+                ? `Créez votre compte pour accéder à votre application ${brandName}`
+                : `Connectez-vous à votre compte ${brandName}`}
             </p>
           </div>
 

@@ -21,6 +21,14 @@ export default function SettingsPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const normalizeSiteWeb = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -46,7 +54,15 @@ export default function SettingsPage() {
   const onLogoChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const runId = `settings-logo-${Date.now()}`;
+    // #region agent log
+    fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5953e6'},body:JSON.stringify({sessionId:'5953e6',runId,hypothesisId:'H1',location:'client/src/pages/SettingsPage.tsx:50',message:'logo file selected',data:{name:file.name,size:file.size,type:file.type,lastModified:file.lastModified},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const userId = await getCurrentUserId();
+    const { data: authData } = await supabase.auth.getUser();
+    // #region agent log
+    fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5953e6'},body:JSON.stringify({sessionId:'5953e6',runId,hypothesisId:'H2',location:'client/src/pages/SettingsPage.tsx:55',message:'resolved user ids before upload',data:{getCurrentUserId:userId,authUserId:authData.user?.id ?? null,sameUser:userId === (authData.user?.id ?? null)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (!userId) {
       setUploadError('Utilisateur non authentifié');
       return;
@@ -56,18 +72,49 @@ export default function SettingsPage() {
     const rawExt = file.name.split('.').pop() || 'png';
     const ext = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
     const path = `${userId}/logo.${ext}`;
+    // #region agent log
+    fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5953e6'},body:JSON.stringify({sessionId:'5953e6',runId,hypothesisId:'H3',location:'client/src/pages/SettingsPage.tsx:65',message:'upload request prepared',data:{bucket:'logos',path,upsert:true,cacheControl:'3600',contentType:file.type || null,derivedExt:ext},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const { error: upErr } = await supabase.storage.from('logos').upload(path, file, {
       upsert: true,
       cacheControl: '3600',
       contentType: file.type || undefined,
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5953e6'},body:JSON.stringify({sessionId:'5953e6',runId,hypothesisId:'H4',location:'client/src/pages/SettingsPage.tsx:72',message:'upload response received',data:{hasError:Boolean(upErr),errorName:upErr?.name ?? null,errorMessage:upErr?.message ?? null,errorStatus:(upErr as { statusCode?: string | number } | null)?.statusCode ?? null,errorDetails:(upErr as { details?: string | null } | null)?.details ?? null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (upErr) {
+      const shouldFallbackToDataUrl = /bucket not found/i.test(upErr.message);
+      if (shouldFallbackToDataUrl) {
+        // #region agent log
+        fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5953e6'},body:JSON.stringify({sessionId:'5953e6',runId:'post-fix',hypothesisId:'H6',location:'client/src/pages/SettingsPage.tsx:79',message:'bucket missing fallback started',data:{reason:upErr.message,fileSize:file.size,fileType:file.type},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        const fallbackUrl = await new Promise<string | null>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5953e6'},body:JSON.stringify({sessionId:'5953e6',runId:'post-fix',hypothesisId:'H6',location:'client/src/pages/SettingsPage.tsx:89',message:'bucket missing fallback resolved',data:{fallbackCreated:Boolean(fallbackUrl),fallbackPrefix:fallbackUrl?.slice(0,24) ?? null},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        if (fallbackUrl) {
+          setLogoUrl(fallbackUrl);
+          setUploadError(null);
+          setLogoUploading(false);
+          e.target.value = '';
+          return;
+        }
+      }
       setUploadError(upErr.message);
       setLogoUploading(false);
       e.target.value = '';
       return;
     }
     const { data: pub } = supabase.storage.from('logos').getPublicUrl(path);
+    // #region agent log
+    fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5953e6'},body:JSON.stringify({sessionId:'5953e6',runId,hypothesisId:'H5',location:'client/src/pages/SettingsPage.tsx:82',message:'public URL generated after upload',data:{publicUrl:pub.publicUrl},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setLogoUrl(pub.publicUrl);
     setLogoUploading(false);
     e.target.value = '';
@@ -75,7 +122,10 @@ export default function SettingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    setSaveSuccess(false);
     if (!nom.trim() || !adresse.trim() || !telephone.trim() || !email.trim() || !numeroIde.trim()) {
+      setFormError('Veuillez remplir tous les champs obligatoires.');
       return;
     }
     try {
@@ -85,22 +135,58 @@ export default function SettingsPage() {
         telephone: telephone.trim(),
         email: email.trim(),
         numero_ide: numeroIde.trim(),
-        site_web: siteWeb.trim() || null,
+        site_web: normalizeSiteWeb(siteWeb),
         logo_url: logoUrl?.trim() || null,
       });
       setSaveSuccess(true);
       window.setTimeout(() => setSaveSuccess(false), 3000);
-    } catch {
-      // error surfaced via hook
+    } catch (saveErr) {
+      setFormError(saveErr instanceof Error ? saveErr.message : 'Erreur lors de l’enregistrement.');
     }
   };
 
+  const initialSnapshot = {
+    nom: profil?.nom?.trim() ?? '',
+    adresse: profil?.adresse?.trim() ?? '',
+    telephone: profil?.telephone?.trim() ?? '',
+    email: profil?.email?.trim() ?? '',
+    numero_ide: profil?.numero_ide?.trim() ?? '',
+    site_web: normalizeSiteWeb(profil?.site_web ?? '') ?? '',
+    logo_url: profil?.logo_url?.trim() ?? '',
+  };
+
+  const currentSnapshot = {
+    nom: nom.trim(),
+    adresse: adresse.trim(),
+    telephone: telephone.trim(),
+    email: email.trim(),
+    numero_ide: numeroIde.trim(),
+    site_web: normalizeSiteWeb(siteWeb) ?? '',
+    logo_url: logoUrl?.trim() ?? '',
+  };
+
+  const hasChanges =
+    currentSnapshot.nom !== initialSnapshot.nom ||
+    currentSnapshot.adresse !== initialSnapshot.adresse ||
+    currentSnapshot.telephone !== initialSnapshot.telephone ||
+    currentSnapshot.email !== initialSnapshot.email ||
+    currentSnapshot.numero_ide !== initialSnapshot.numero_ide ||
+    currentSnapshot.site_web !== initialSnapshot.site_web ||
+    currentSnapshot.logo_url !== initialSnapshot.logo_url;
+
   const canSave =
-    nom.trim() && adresse.trim() && telephone.trim() && email.trim() && numeroIde.trim() && !saving && !logoUploading;
+    nom.trim() &&
+    adresse.trim() &&
+    telephone.trim() &&
+    email.trim() &&
+    numeroIde.trim() &&
+    hasChanges &&
+    !saving &&
+    !logoUploading;
 
   return (
     <PageWrapper mobileTitle="Paramètres">
-      <div className="p-6 max-w-xl mx-auto space-y-6">
+      <div className="p-3 md:p-6 max-w-xl mx-auto space-y-6">
         <h1 className="text-xl font-bold md:text-2xl text-white">Paramètres — Profil entreprise</h1>
 
         {loading ? (
@@ -108,7 +194,12 @@ export default function SettingsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-white/70" aria-label="Chargement" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            {formError && (
+              <p className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                {formError}
+              </p>
+            )}
             {error && (
               <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
                 {error}
@@ -186,11 +277,12 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label className="text-white">Site web</Label>
               <Input
-                type="url"
+                type="text"
+                inputMode="url"
                 value={siteWeb}
                 onChange={(e) => setSiteWeb(e.target.value)}
                 className="bg-black/20 border-white/10 text-white placeholder:text-white/30"
-                placeholder="https://"
+                placeholder="exemple.ch ou https://exemple.ch"
               />
             </div>
 

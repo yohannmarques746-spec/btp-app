@@ -9,21 +9,38 @@ import { useLocation } from "wouter"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabaseClient"
 import { cn } from "@/lib/utils"
+import { formatSupabaseAuthError } from "@/lib/authErrors"
+import { useBranding } from "@/hooks/useBranding"
 
 // ---------------------------------------------------------------------------
 // Onglet actif persistant
 // ---------------------------------------------------------------------------
 type AuthMode = "signIn" | "signUp"
-const STORAGE_KEY = "caldy:auth-tab"
+const AUTH_TAB_STORAGE_KEY = "app:auth-tab"
+const LEGACY_AUTH_TAB_STORAGE_KEY = "caldy:auth-tab"
 
 function useAuthMode(): [AuthMode, (m: AuthMode) => void] {
   const [mode, setModeState] = useState<AuthMode>(() => {
     if (typeof window === "undefined") return "signIn"
-    return window.localStorage.getItem(STORAGE_KEY) === "signUp" ? "signUp" : "signIn"
+    const nextValue = window.localStorage.getItem(AUTH_TAB_STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_AUTH_TAB_STORAGE_KEY)
+    if (nextValue) {
+      try {
+        window.localStorage.setItem(AUTH_TAB_STORAGE_KEY, nextValue)
+        window.localStorage.removeItem(LEGACY_AUTH_TAB_STORAGE_KEY)
+      } catch {
+        // noop
+      }
+    }
+    return nextValue === "signUp" ? "signUp" : "signIn"
   })
   const setMode = (next: AuthMode) => {
     setModeState(next)
-    try { window.localStorage.setItem(STORAGE_KEY, next) } catch { /* noop */ }
+    try {
+      window.localStorage.setItem(AUTH_TAB_STORAGE_KEY, next)
+      window.localStorage.removeItem(LEGACY_AUTH_TAB_STORAGE_KEY)
+    } catch {
+      // noop
+    }
   }
   return [mode, setMode]
 }
@@ -121,7 +138,7 @@ const OWNER_ID = import.meta.env.VITE_OWNER_ID as string | undefined;
 // ---------------------------------------------------------------------------
 // Formulaire connexion (Supabase signIn)
 // ---------------------------------------------------------------------------
-function SignInForm({ onSuccess }: { onSuccess: () => void }) {
+function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; emailPlaceholder: string }) {
   const { signIn, signOut } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -138,9 +155,11 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
       const { data, error } = await signIn(email, password)
       if (error) {
         const isInvalid = /invalid login credentials|invalid_credentials/i.test(error.message || "")
-        setError(isInvalid
-          ? "Identifiants invalides. Si le compte vient d'être créé, confirmez d'abord l'email puis réessayez."
-          : error.message || "Email ou mot de passe incorrect")
+        setError(
+          isInvalid
+            ? "Identifiants invalides. Si le compte vient d'être créé, confirmez d'abord l'email puis réessayez."
+            : formatSupabaseAuthError(error, error.message || "Email ou mot de passe incorrect")
+        )
       } else if (OWNER_ID && data?.user?.id !== OWNER_ID) {
         await signOut()
         setError("Accès refusé. Ce compte n'est pas autorisé à accéder à cette application.")
@@ -172,7 +191,7 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
         id="signin-email" label="Email" type="email"
         icon={<Mail className="h-4 w-4" />}
         value={email} onChange={setEmail}
-        placeholder="vous@caldy.fr" autoComplete="email"
+        placeholder={emailPlaceholder} autoComplete="email"
       />
       <Field
         id="signin-password" label="Mot de passe"
@@ -203,7 +222,7 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
 // ---------------------------------------------------------------------------
 // Formulaire inscription (Supabase signUp)
 // ---------------------------------------------------------------------------
-function SignUpForm() {
+function SignUpForm({ emailPlaceholder }: { emailPlaceholder: string }) {
   const { signUp } = useAuth()
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
@@ -222,9 +241,24 @@ function SignUpForm() {
     if (!email || !password || !fullName) { setError("Veuillez remplir tous les champs"); return }
     setLoading(true)
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b01c17' },
+        body: JSON.stringify({
+          sessionId: 'b01c17',
+          runId: 'pre-fix',
+          hypothesisId: 'H4',
+          location: 'LoginPage.tsx:SignUpForm:handleSubmit',
+          message: 'before signUp (LoginPage)',
+          data: { emailFieldLen: email.trim().length },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       const { error } = await signUp(email, password, fullName)
       if (error) {
-        setError(error.message || "Erreur lors de la création du compte")
+        setError(formatSupabaseAuthError(error, "Erreur lors de la création du compte"))
       } else {
         setInfo("Compte créé. Vérifiez votre email pour confirmer le compte avant de vous connecter.")
         setPendingEmail(email.trim().toLowerCase())
@@ -245,7 +279,9 @@ function SignUpForm() {
       email: pendingEmail,
       options: { emailRedirectTo: `${window.location.origin}/login` },
     })
-    if (error) setError(error.message || "Impossible de renvoyer l'email de confirmation.")
+    if (error) {
+      setError(formatSupabaseAuthError(error, error.message || "Impossible de renvoyer l'email de confirmation."))
+    }
     else setInfo("Email de confirmation renvoyé. Vérifiez aussi vos spams.")
     setResendLoading(false)
   }
@@ -283,7 +319,7 @@ function SignUpForm() {
         id="signup-email" label="Email *" type="email"
         icon={<Mail className="h-4 w-4" />}
         value={email} onChange={setEmail}
-        placeholder="vous@caldy.fr" autoComplete="email"
+        placeholder={emailPlaceholder} autoComplete="email"
       />
       <Field
         id="signup-password" label="Mot de passe *"
@@ -319,6 +355,7 @@ export default function LoginPage() {
   const [dimensions, setDimensions] = useState({ width: 1920, height: 1080 })
   const [mounted, setMounted] = useState(false)
   const { user, loading } = useAuth()
+  const { brandName, brandTagline, brandEmailPlaceholder } = useBranding()
   const [, setLocation] = useLocation()
 
   const colors = ["#0a1a3f", "#173a8a", "#2563eb", "#3b82f6", "#4338ca", "#111827"]
@@ -383,8 +420,8 @@ export default function LoginPage() {
             </h1>
             <p className="text-white/70 text-sm mt-1.5">
               {mode === "signIn"
-                ? "Connectez-vous à votre compte CALDY"
-                : "Créez votre compte pour accéder à CALDY"}
+                ? `Connectez-vous à votre compte ${brandName}`
+                : `Créez votre compte pour accéder à ${brandName}`}
             </p>
           </div>
 
@@ -405,13 +442,13 @@ export default function LoginPage() {
 
           <AnimatePresence mode="wait">
             {mode === "signIn"
-              ? <SignInForm key="signin" onSuccess={() => setLocation("/dashboard")} />
-              : <SignUpForm key="signup" />
+              ? <SignInForm key="signin" onSuccess={() => setLocation("/dashboard")} emailPlaceholder={brandEmailPlaceholder} />
+              : <SignUpForm key="signup" emailPlaceholder={brandEmailPlaceholder} />
             }
           </AnimatePresence>
         </div>
 
-        <p className="text-center text-xs text-white/40 mt-6">CALDY — Construire pour durer</p>
+        <p className="text-center text-xs text-white/40 mt-6">{brandTagline ? `${brandName} — ${brandTagline}` : brandName}</p>
       </motion.div>
 
       <style>{`

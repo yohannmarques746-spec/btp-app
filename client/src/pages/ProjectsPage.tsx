@@ -161,8 +161,8 @@ export default function ProjectsPage() {
 
   return (
     <PageWrapper mobileTitle="Chantiers">
-      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 rounded-tl-3xl">
-        <div className="flex items-center justify-between">
+      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-3 py-3 md:px-6 md:py-4 md:rounded-tl-3xl">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-lg font-bold md:text-2xl text-white">
               {showArchived ? 'Chantiers archivés' : 'Mes Chantiers'}
@@ -171,27 +171,27 @@ export default function ProjectsPage() {
               {showArchived ? 'Consultez vos chantiers archivés' : 'Gérez tous vos projets en cours et terminés'}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => setShowArchived((prev) => !prev)}
               className={`border-white/20 hover:bg-white/10 ${showArchived ? 'text-yellow-300' : 'text-white'}`}
             >
-              <Archive className="h-4 w-4 mr-2" />
-              {showArchived ? 'Voir actifs' : 'Archivés'}
+              <Archive className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">{showArchived ? 'Voir actifs' : 'Archivés'}</span>
             </Button>
             <Link href="/dashboard/clients">
-              <Button variant="outline" className="h-11 min-w-[44px] px-4 text-sm touch-manipulation text-white border-white/20 hover:bg-white/10">
-                <User className="h-4 w-4 mr-2" />
-                Clients
+              <Button variant="outline" className="h-11 min-w-[44px] px-3 sm:px-4 text-sm touch-manipulation text-white border-white/20 hover:bg-white/10">
+                <User className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Clients</span>
               </Button>
             </Link>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="h-11 min-w-[44px] px-4 text-sm touch-manipulation bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Ajouter un Chantier
+                <Button className="h-11 min-w-[44px] px-3 sm:px-4 text-sm touch-manipulation bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Ajouter un Chantier</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-black/20 backdrop-blur-xl border border-white/10 text-white max-w-2xl">

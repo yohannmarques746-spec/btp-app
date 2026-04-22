@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, getCurrentUserId } from "@/lib/supabase";
 
 export interface ClientRecord {
@@ -56,6 +56,7 @@ export function useClients() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const effectRunRef = useRef(0);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -77,16 +78,46 @@ export function useClients() {
   }, []);
 
   useEffect(() => {
+    effectRunRef.current += 1;
+    const runId = `useClients-effect-${effectRunRef.current}`;
+    const existingChannelsBefore = (supabase.getChannels?.() ?? []).map((chan) => ({
+      topic: (chan as { topic?: string }).topic ?? "unknown",
+      state: (chan as { state?: string }).state ?? "unknown",
+    }));
+    // #region agent log
+    fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5953e6" }, body: JSON.stringify({ sessionId: "5953e6", runId, hypothesisId: "H1", location: "client/src/hooks/useClients.ts:85", message: "useEffect mount started", data: { existingChannelsBefore }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
     refresh();
-    const channel = supabase
-      .channel("clients-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, () => {
-        refresh();
-      })
-      .subscribe();
+    const channelName = `clients-realtime-${globalThis.crypto.randomUUID()}`;
+    const channel = supabase.channel(channelName);
+    // #region agent log
+    fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5953e6" }, body: JSON.stringify({ sessionId: "5953e6", runId: "post-fix", hypothesisId: "H2", location: "client/src/hooks/useClients.ts:92", message: "channel created", data: { channelName, topic: (channel as { topic?: string }).topic ?? "unknown", state: (channel as { state?: string }).state ?? "unknown" }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+    let subscribedChannel = channel;
+    try {
+      subscribedChannel = channel
+        .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, () => {
+          // #region agent log
+          fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5953e6" }, body: JSON.stringify({ sessionId: "5953e6", runId, hypothesisId: "H4", location: "client/src/hooks/useClients.ts:99", message: "postgres change callback fired", data: { topic: ((channel as { topic?: string }).topic ?? "unknown") }, timestamp: Date.now() }) }).catch(() => {});
+          // #endregion
+          refresh();
+        })
+        .subscribe();
+      // #region agent log
+      fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5953e6" }, body: JSON.stringify({ sessionId: "5953e6", runId, hypothesisId: "H3", location: "client/src/hooks/useClients.ts:106", message: "channel subscribed", data: { topic: (subscribedChannel as { topic?: string }).topic ?? "unknown", state: (subscribedChannel as { state?: string }).state ?? "unknown" }, timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
+    } catch (subscriptionError) {
+      // #region agent log
+      fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5953e6" }, body: JSON.stringify({ sessionId: "5953e6", runId, hypothesisId: "H3", location: "client/src/hooks/useClients.ts:110", message: "subscribe pipeline failed", data: { errorMessage: subscriptionError instanceof Error ? subscriptionError.message : "unknown error", topic: (channel as { topic?: string }).topic ?? "unknown", state: (channel as { state?: string }).state ?? "unknown" }, timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
+      throw subscriptionError;
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      // #region agent log
+      fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5953e6" }, body: JSON.stringify({ sessionId: "5953e6", runId, hypothesisId: "H1", location: "client/src/hooks/useClients.ts:117", message: "cleanup removeChannel called", data: { topic: (subscribedChannel as { topic?: string }).topic ?? "unknown", state: (subscribedChannel as { state?: string }).state ?? "unknown", channelsAtCleanup: (supabase.getChannels?.() ?? []).map((chan) => ({ topic: (chan as { topic?: string }).topic ?? "unknown", state: (chan as { state?: string }).state ?? "unknown" })) }, timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
+      supabase.removeChannel(subscribedChannel);
     };
   }, [refresh]);
 

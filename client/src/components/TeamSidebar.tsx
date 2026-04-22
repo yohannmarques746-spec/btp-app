@@ -7,11 +7,13 @@ import {
   X,
 } from 'lucide-react';
 import { useMobileSidebar } from '../contexts/MobileSidebarContext';
+import { useBranding } from '@/hooks/useBranding';
 
 export default function TeamSidebar() {
   const [collapsed] = useState(false);
   const { isOpen, close } = useMobileSidebar();
   const [location] = useLocation();
+  const { brandName, brandTagline } = useBranding();
 
   const menuItems = [
     { icon: Home, label: 'Vue d\'ensemble', path: '/team-dashboard', active: location === '/team-dashboard' },
@@ -27,7 +29,7 @@ export default function TeamSidebar() {
         <div className="p-4 border-b border-white/10">
           <div className="flex flex-col">
             <span className="font-semibold text-white">Membre d'équipe</span>
-            <span className="text-xs text-white/70 italic">CALDY</span>
+            <span className="text-xs text-white/70 italic truncate">{brandTagline || brandName}</span>
           </div>
         </div>
 

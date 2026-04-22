@@ -10,12 +10,17 @@ export interface PrestationCatalogue {
   tauxTVA: TauxTVA;
 }
 
-const STORAGE_KEY = "caldy_catalogue_prestations";
+const STORAGE_KEY = "app_catalogue_prestations";
+const LEGACY_STORAGE_KEY = "caldy_catalogue_prestations";
 
 function loadFromStorage(): PrestationCatalogue[] {
   try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
+    const raw = globalThis.localStorage?.getItem(STORAGE_KEY) ?? globalThis.localStorage?.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return [];
+    if (!globalThis.localStorage?.getItem(STORAGE_KEY)) {
+      globalThis.localStorage?.setItem(STORAGE_KEY, raw);
+      globalThis.localStorage?.removeItem(LEGACY_STORAGE_KEY);
+    }
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch {

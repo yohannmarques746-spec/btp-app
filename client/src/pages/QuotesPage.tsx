@@ -434,7 +434,7 @@ export default function QuotesPage() {
 
   return (
     <PageWrapper mobileTitle="Devis">
-      <header className="border-b border-white/10 bg-black/20 px-6 py-4">
+      <header className="border-b border-white/10 bg-black/20 px-3 py-3 md:px-6 md:py-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-bold md:text-2xl text-white">Generateur de Devis Suisse</h1>

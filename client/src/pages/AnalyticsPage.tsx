@@ -5,7 +5,7 @@ import { BarChart3 } from 'lucide-react';
 export default function AnalyticsPage() {
   return (
     <PageWrapper mobileTitle="Analyses">
-      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4">
+      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-3 py-3 md:px-6 md:py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold md:text-2xl text-white">

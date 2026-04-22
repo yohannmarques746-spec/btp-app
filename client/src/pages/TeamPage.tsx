@@ -540,17 +540,17 @@ export default function TeamPage() {
 
   return (
     <PageWrapper mobileTitle="Équipe">
-      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 rounded-tl-3xl">
-        <div className="flex items-center justify-between">
+      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-3 py-3 md:px-6 md:py-4 md:rounded-tl-3xl">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-lg font-bold md:text-2xl text-white">Gestion de l'Équipe</h1>
             <p className="text-sm text-white/70">PIN sécurisé • Permissions par module • Assignation chantiers</p>
           </div>
           <Button
             onClick={() => setIsAddOpen(true)}
-            className="h-11 px-4 text-sm bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30"
+            className="h-11 px-3 sm:px-4 text-sm bg-white/20 backdrop-blur-md text-white border border-white/10 hover:bg-white/30"
           >
-            <Plus className="h-4 w-4 mr-2" />Ajouter un membre
+            <Plus className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Ajouter un membre</span>
           </Button>
         </div>
       </header>

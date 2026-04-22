@@ -63,7 +63,7 @@ export default function CRMPipelinePage() {
 
   return (
     <PageWrapper mobileTitle="CRM Pipeline">
-      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4 rounded-tl-3xl">
+      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-3 py-3 md:px-6 md:py-4 md:rounded-tl-3xl">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-lg font-bold md:text-2xl text-white">CRM Pipeline</h1>

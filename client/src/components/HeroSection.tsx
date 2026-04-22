@@ -44,8 +44,8 @@ export function HeroSection({
             className={`font-bold text-white text-balance text-4xl sm:text-5xl md:text-6xl xl:text-[80px] leading-tight sm:leading-tight md:leading-tight lg:leading-tight xl:leading-[1.1] mb-6 lg:text-7xl ${titleClassName}`}
             style={{ fontFamily, fontWeight }}
           >
-            {title}{" "}
-            <span className="text-[hsl(215_100%_60%)] italic">{highlightText}</span>
+            {title}
+            {highlightText ? <> <span className="text-[hsl(215_100%_60%)] italic">{highlightText}</span></> : null}
           </h1>
 
           <p

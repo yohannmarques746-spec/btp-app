@@ -368,7 +368,7 @@ export default function PaymentsPage() {
 
   return (
     <PageWrapper mobileTitle="Factures">
-      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-6 py-4">
+      <header className="bg-black/20 backdrop-blur-xl border-b border-white/10 px-3 py-3 md:px-6 md:py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {mode === "form" && (
@@ -394,12 +394,12 @@ export default function PaymentsPage() {
             </div>
           </div>
           {mode === "list" && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={exportCSV} className="border-white/20 text-white hover:bg-white/10">
-                <FileDown className="h-4 w-4 mr-2" /> CSV
+                <FileDown className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">CSV</span>
               </Button>
               <Button onClick={openNew} className="bg-green-600 hover:bg-green-700 text-white">
-                <Plus className="h-4 w-4 mr-2" /> Nouvelle facture
+                <Plus className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Nouvelle facture</span>
               </Button>
             </div>
           )}

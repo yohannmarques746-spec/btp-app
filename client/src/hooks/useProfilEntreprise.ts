@@ -41,6 +41,29 @@ function mapRowToEmetteur(row: {
   };
 }
 
+function mapEntrepriseProfilToEmetteur(row: {
+  nom: string | null;
+  adresse: string | null;
+  numero_ide: string | null;
+  email: string | null;
+  telephone: string | null;
+  logo_url: string | null;
+} | null): Emetteur {
+  if (!row) return { ...EMPTY_PROFIL_ENTREPRISE };
+  return {
+    nom: row.nom ?? "",
+    adresse: row.adresse ?? "",
+    npa: "",
+    ville: "",
+    ide: row.numero_ide ?? "",
+    email: row.email ?? "",
+    telephone: row.telephone ?? "",
+    iban: "",
+    logo: row.logo_url ?? "",
+    nonAssujettiTVA: false,
+  };
+}
+
 export function useProfilEntreprise() {
   const [profile, setProfile] = useState<Emetteur>({ ...EMPTY_PROFIL_ENTREPRISE });
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -71,8 +94,25 @@ export function useProfilEntreprise() {
       return;
     }
 
-    setProfileId(data?.id ?? null);
-    setProfile(mapRowToEmetteur(data));
+    if (data) {
+      setProfileId(data.id);
+      setProfile(mapRowToEmetteur(data));
+      setLoading(false);
+      return;
+    }
+
+    const { data: entrepriseData, error: entrepriseError } = await supabase
+      .from("entreprise_profil")
+      .select("nom, adresse, numero_ide, email, telephone, logo_url")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (entrepriseError) {
+      console.error("useProfilEntreprise.refreshEntrepriseFallback", entrepriseError);
+    }
+
+    setProfileId(null);
+    setProfile(mapEntrepriseProfilToEmetteur(entrepriseData));
     setLoading(false);
   }, []);
 
