@@ -98,7 +98,7 @@ function ChantierAssignments({ memberId }: { memberId: string }) {
         setAssigned((prev) => { const next = new Set(prev); next.delete(chantierId); return next; });
       } else {
         await supabase.from('chantier_assignments').insert({ member_id: memberId, chantier_id: chantierId });
-        setAssigned((prev) => new Set([...prev, chantierId]));
+        setAssigned((prev) => { const next = new Set(prev); next.add(chantierId); return next; });
       }
     } catch {
       toast({ title: 'Erreur de mise à jour', variant: 'destructive' });
