@@ -15,3 +15,7 @@ client/.env.local
 # Outils / caches locaux
 .npm-cache/
 .cursor/*.log
+
+# Claude Code (worktree = dépôt git imbriqué ; settings locales)
+.claude/worktrees/
+.claude/settings.local.json
