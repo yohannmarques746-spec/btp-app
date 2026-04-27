@@ -14,8 +14,9 @@ import {
 } from '@/components/ui/select';
 import {
   Users, Plus, User, Trash2, Building, Key, Eye, EyeOff,
-  Settings2, ChevronDown, ChevronUp, Loader2, UserCheck, UserX, Mail,
+  Settings2, ChevronDown, ChevronUp, Loader2, UserCheck, UserX, Mail, Copy, RefreshCw,
 } from 'lucide-react';
+import { getCsrfToken } from '@/lib/csrf';
 import { supabase } from '@/lib/supabase';
 import { useChantiers } from '@/hooks/useChantiers';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +24,10 @@ import { useAuth } from '@/context/AuthContext';
 
 // OWNER_ID canonical — utilisé par les deux patrons
 const OWNER_ID = (import.meta.env.VITE_OWNER_ID as string | undefined) ?? '';
+
+function generatePin(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -166,8 +171,8 @@ function MemberCard({ member, onDeleted }: { member: Member; onDeleted: () => vo
   };
 
   const handleUpdatePin = async () => {
-    if (!/^\d{4}$/.test(newPin)) {
-      toast({ title: 'PIN invalide', description: '4 chiffres requis', variant: 'destructive' });
+    if (!/^\d{6}$/.test(newPin)) {
+      toast({ title: 'PIN invalide', description: '6 chiffres requis', variant: 'destructive' });
       return;
     }
     const { data: { session } } = await supabase.auth.getSession();
@@ -175,12 +180,13 @@ function MemberCard({ member, onDeleted }: { member: Member; onDeleted: () => vo
     if (!token) { toast({ title: 'Session expirée', variant: 'destructive' }); return; }
     setSavingPin(true);
     try {
+      const csrf = await getCsrfToken();
       const res = await fetch(`/api/team/members/${member.id}/pin`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-CSRF-Token': csrf },
         body: JSON.stringify({ pin: newPin, ownerId: OWNER_ID || member.user_id }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string };
       if (!res.ok) { toast({ title: data.error ?? 'Erreur', variant: 'destructive' }); return; }
       toast({ title: 'PIN mis à jour' });
       setNewPin('');
@@ -284,18 +290,28 @@ function MemberCard({ member, onDeleted }: { member: Member; onDeleted: () => vo
         <DialogContent className="bg-black/30 backdrop-blur-xl border border-white/10 text-white rounded-2xl">
           <DialogHeader><DialogTitle>Modifier le PIN — {member.name}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            <Label className="text-white/80">Nouveau PIN (4 chiffres)</Label>
-            <Input
-              type="password" inputMode="numeric" maxLength={4} value={newPin}
-              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="••••"
-              className="bg-black/20 border-white/10 text-white font-mono tracking-widest text-center text-xl"
-            />
+            <Label className="text-white/80">Nouveau PIN (6 chiffres)</Label>
+            <div className="flex gap-2">
+              <Input
+                type="password" inputMode="numeric" maxLength={6} value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="••••••"
+                className="bg-black/20 border-white/10 text-white font-mono tracking-widest text-center text-xl flex-1"
+              />
+              <Button
+                type="button" variant="outline" size="icon"
+                onClick={() => setNewPin(generatePin())}
+                className="text-white border-white/20 hover:bg-white/10 shrink-0"
+                title="Générer un PIN aléatoire"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPinDialog(false)}
               className="text-white border-white/20 hover:bg-white/10">Annuler</Button>
-            <Button onClick={handleUpdatePin} disabled={savingPin || newPin.length !== 4}>
+            <Button onClick={handleUpdatePin} disabled={savingPin || newPin.length !== 6}>
               {savingPin ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer'}
             </Button>
           </DialogFooter>
@@ -375,12 +391,13 @@ function CoOwnersSection({ ownerId }: { ownerId: string }) {
     try {
       const token = await getAuthToken();
       if (!token) return;
+      const csrf = await getCsrfToken();
       const res = await fetch('/api/team/co-owners', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-CSRF-Token': csrf },
         body: JSON.stringify({ email: newEmail.trim(), ownerId }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string };
       if (!res.ok) { toast({ title: data.error ?? 'Erreur', variant: 'destructive' }); return; }
       toast({ title: 'Co-patron ajouté' });
       setNewEmail('');
@@ -397,9 +414,10 @@ function CoOwnersSection({ ownerId }: { ownerId: string }) {
     try {
       const token = await getAuthToken();
       if (!token) return;
+      const csrf = await getCsrfToken();
       const res = await fetch(`/api/team/co-owners/${coOwnerId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-CSRF-Token': csrf },
         body: JSON.stringify({ ownerId }),
       });
       if (!res.ok) { toast({ title: 'Erreur suppression', variant: 'destructive' }); return; }
@@ -521,8 +539,8 @@ export default function TeamPage() {
 
   const handleAddMember = async () => {
     if (!newName.trim()) { toast({ title: 'Nom requis', variant: 'destructive' }); return; }
-    if (!/^\d{4}$/.test(newPin)) {
-      toast({ title: 'PIN invalide', description: '4 chiffres exactement', variant: 'destructive' });
+    if (!/^\d{6}$/.test(newPin)) {
+      toast({ title: 'PIN invalide', description: '6 chiffres exactement', variant: 'destructive' });
       return;
     }
 
@@ -531,13 +549,21 @@ export default function TeamPage() {
 
     setAdding(true);
     try {
+      const csrf = await getCsrfToken();
       const res = await fetch('/api/team/members', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-CSRF-Token': csrf },
         body: JSON.stringify({ name: newName.trim(), pin: newPin, role: newRole, ownerId }),
       });
-      const data = await res.json();
-      if (!res.ok) { toast({ title: data.error ?? 'Erreur', variant: 'destructive' }); return; }
+      const data = await res.json() as { error?: string };
+      if (!res.ok) {
+        if (res.status === 409) {
+          toast({ title: 'Ce PIN est déjà utilisé', description: 'Générez un nouveau PIN pour ce membre.', variant: 'destructive' });
+        } else {
+          toast({ title: data.error ?? 'Erreur serveur', variant: 'destructive' });
+        }
+        return;
+      }
       toast({ title: `${newName} ajouté avec succès` });
       setNewName(''); setNewPin(''); setNewRole('member');
       setIsAddOpen(false);
@@ -608,7 +634,7 @@ export default function TeamPage() {
               </span>
             </p>
             <p className="text-xs text-white/40 mt-1">
-              Partagez ce lien avec vos membres. Ils se connectent avec leur PIN à 4 chiffres.
+              Partagez ce lien avec vos membres. Ils se connectent avec leur PIN à 6 chiffres.
             </p>
           </CardContent>
         </Card>
@@ -625,14 +651,33 @@ export default function TeamPage() {
                 className="bg-black/20 border-white/10 text-white" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-white/80">PIN (4 chiffres)</Label>
-              <Input
-                type="password" inputMode="numeric" maxLength={4} value={newPin}
-                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="••••"
-                className="bg-black/20 border-white/10 text-white font-mono tracking-widest text-center text-xl"
-              />
-              <p className="text-xs text-white/40">Le PIN sera haché — non récupérable. Notez-le avant d'enregistrer.</p>
+              <Label className="text-white/80">PIN (6 chiffres)</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text" inputMode="numeric" maxLength={6} value={newPin}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Ex: 482631"
+                  className="bg-black/20 border-white/10 text-white font-mono tracking-widest text-center text-xl flex-1"
+                />
+                <Button
+                  type="button" variant="outline" size="icon"
+                  onClick={() => setNewPin(generatePin())}
+                  className="text-white border-white/20 hover:bg-white/10 shrink-0"
+                  title="Générer un PIN aléatoire"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button" variant="outline" size="icon"
+                  onClick={() => { navigator.clipboard.writeText(newPin); toast({ title: 'PIN copié' }); }}
+                  disabled={!newPin}
+                  className="text-white border-white/20 hover:bg-white/10 shrink-0"
+                  title="Copier le PIN"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-white/40">Le PIN sera haché — non récupérable. Copiez-le avant d'enregistrer.</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-white/80">Rôle</Label>

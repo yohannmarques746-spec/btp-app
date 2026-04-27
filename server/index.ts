@@ -4,8 +4,35 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Faire confiance au proxy (nécessaire pour req.ip correct derrière Vercel/Nginx)
+app.set("trust proxy", 1);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// ─── Security headers ─────────────────────────────────────────────────────────
+const SUPABASE_HOST = (process.env.VITE_SUPABASE_URL ?? "").replace(/^https?:\/\//, "");
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'wasm-unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
+      "font-src 'self' data:",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  );
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

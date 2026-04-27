@@ -132,47 +132,6 @@ export async function deleteTeamMember(id: string): Promise<boolean> {
   }
 }
 
-export async function verifyTeamMemberCode(code: string, invitationToken?: string): Promise<TeamMember | null> {
-  try {
-    // Si un token d'invitation est fourni, on peut vérifier sans auth
-    if (invitationToken) {
-      // D'abord, vérifier que l'invitation est valide
-      const invitation = await getInvitationByToken(invitationToken);
-      if (!invitation) return null;
-
-      // Ensuite, vérifier le code pour ce membre spécifique
-      const { data, error } = await supabase
-        .from('team_members')
-        .select('*')
-        .eq('id', invitation.team_member_id)
-        .eq('login_code', code)
-        .eq('status', 'actif')
-        .single();
-
-      if (error || !data) return null;
-      return data;
-    }
-
-    // Sinon, vérification normale avec auth
-    const userId = await getCurrentUserId();
-    if (!userId) throw new Error('User not authenticated');
-
-    const { data, error } = await supabase
-      .from('team_members')
-      .select('*')
-      .eq('login_code', code)
-      .eq('status', 'actif')
-      .eq('user_id', userId)
-      .single();
-
-    if (error || !data) return null;
-    return data;
-  } catch (error) {
-    console.error('Error verifying code:', error);
-    return null;
-  }
-}
-
 // Admin code functions
 export interface AdminCode {
   id: string;

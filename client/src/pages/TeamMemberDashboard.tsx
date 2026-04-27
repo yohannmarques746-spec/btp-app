@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { getCsrfToken } from "@/lib/csrf";
 import {
   Building2,
   CalendarDays,
@@ -75,12 +76,14 @@ function ChantierNoteSection({
     if (!content.trim()) return;
     setSending(true);
     try {
-      const token = localStorage.getItem("member-session-token") ?? "";
+      const sessionToken = localStorage.getItem("member-session-token") ?? "";
+      const csrf = await getCsrfToken();
       const res = await fetch("/api/team/notes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${sessionToken}`,
+          "X-CSRF-Token": csrf,
         },
         body: JSON.stringify({ chantierId, content }),
       });

@@ -11,7 +11,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import Home from "@/pages/Home";
 import LoginPage from "@/pages/LoginPage";
 import InvitePage from "@/pages/InvitePage";
-import TeamDashboard from "@/pages/TeamDashboard";
 import Dashboard from "@/pages/Dashboard";
 import QuotesPage from "@/pages/QuotesPage";
 import ProspectsPage from "@/pages/ProspectsPage";
@@ -70,8 +69,6 @@ function Router() {
       case "/auth":
       case "/login":
         return <LoginPage />;
-      case "/team-dashboard":
-        return <TeamDashboard />;
       case "/dashboard":
         return <ProtectedRoute><Dashboard /></ProtectedRoute>;
       case "/dashboard/quotes":

@@ -133,13 +133,11 @@ function TabButton({ active, onClick, icon, label }: TabButtonProps) {
   )
 }
 
-const OWNER_ID = import.meta.env.VITE_OWNER_ID as string | undefined;
-
 // ---------------------------------------------------------------------------
 // Formulaire connexion (Supabase signIn)
 // ---------------------------------------------------------------------------
 function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; emailPlaceholder: string }) {
-  const { signIn, signOut } = useAuth()
+  const { signIn } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -150,24 +148,29 @@ function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; em
     e.preventDefault()
     setError(null)
     if (!email || !password) { setError("Veuillez remplir tous les champs"); return }
+
+    // Validation frontend simple
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email.trim())) { setError("Adresse email invalide"); return }
+    if (password.length < 6) { setError("Le mot de passe doit contenir au moins 6 caractères"); return }
+
     setLoading(true)
     try {
-      const { data, error } = await signIn(email, password)
+      const { error } = await signIn(email, password)
       if (error) {
-        const isInvalid = /invalid login credentials|invalid_credentials/i.test(error.message || "")
-        setError(
-          isInvalid
-            ? "Identifiants invalides. Si le compte vient d'être créé, confirmez d'abord l'email puis réessayez."
-            : formatSupabaseAuthError(error, error.message || "Email ou mot de passe incorrect")
-        )
-      } else if (OWNER_ID && data?.user?.id !== OWNER_ID) {
-        await signOut()
-        setError("Accès refusé. Ce compte n'est pas autorisé à accéder à cette application.")
+        const msg = error.message ?? ""
+        if (/invalid login credentials|invalid_credentials/i.test(msg)) {
+          setError("Email ou mot de passe incorrect. Si le compte vient d'être créé, confirmez d'abord l'email.")
+        } else if (/email not confirmed/i.test(msg)) {
+          setError("Email non confirmé — vérifiez votre boîte mail et cliquez sur le lien de confirmation.")
+        } else {
+          setError(formatSupabaseAuthError(error, msg || "Une erreur est survenue"))
+        }
       } else {
         onSuccess()
       }
-    } catch (err: any) {
-      setError(err.message || "Une erreur est survenue")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue")
     } finally {
       setLoading(false)
     }
@@ -344,14 +347,12 @@ export default function LoginPage() {
   const [, setLocation] = useLocation()
 
   const colors = ["#0a1a3f", "#173a8a", "#2563eb", "#3b82f6", "#4338ca", "#111827"]
-  const isOwner = !OWNER_ID || user?.id === OWNER_ID
-  // Si OWNER_ID est défini, la création de compte n'a aucun sens (seul le propriétaire peut se connecter)
-  const allowSignUp = !OWNER_ID
+  const allowSignUp = true
 
-  // Redirection si déjà connecté en tant que propriétaire
+  // Redirection si déjà connecté
   useEffect(() => {
-    if (!loading && user && isOwner) setLocation("/dashboard")
-  }, [user, loading, isOwner, setLocation])
+    if (!loading && user) setLocation("/dashboard")
+  }, [user, loading, setLocation])
 
   useEffect(() => {
     setMounted(true)
