@@ -13,19 +13,43 @@ app.use(express.urlencoded({ extended: false }));
 
 // ─── Security headers ─────────────────────────────────────────────────────────
 const SUPABASE_HOST = (process.env.VITE_SUPABASE_URL ?? "").replace(/^https?:\/\//, "");
+
+type NodeEnv = "development" | "production";
+const NODE_ENV: NodeEnv = process.env.NODE_ENV === "production" ? "production" : "development";
+
+/**
+ * Build the Content-Security-Policy header value.
+ *
+ * In development, Vite injects an inline `<script>` preamble required by
+ * `@vitejs/plugin-react` to enable React Fast Refresh. That inline script
+ * gets blocked unless `'unsafe-inline'` is whitelisted on `script-src`,
+ * which manifests as the runtime error:
+ *   "@vitejs/plugin-react can't detect preamble. Something is wrong."
+ *
+ * In production, Vite emits hashed external bundles only (no inline
+ * scripts), so we keep the policy strict — `'self' 'wasm-unsafe-eval'`.
+ */
+const buildCspPolicy = (env: NodeEnv): string => {
+  const scriptSrc =
+    env === "development"
+      ? "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'"
+      : "script-src 'self' 'wasm-unsafe-eval'";
+
+  return [
+    "default-src 'self'",
+    scriptSrc,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
+    "font-src 'self' data:",
+    "frame-ancestors 'none'",
+  ].join("; ");
+};
+
+const CSP_POLICY = buildCspPolicy(NODE_ENV);
+
 app.use((_req: Request, res: Response, next: NextFunction) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    [
-      "default-src 'self'",
-      "script-src 'self' 'wasm-unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https:",
-      `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
-      "font-src 'self' data:",
-      "frame-ancestors 'none'",
-    ].join("; "),
-  );
+  res.setHeader("Content-Security-Policy", CSP_POLICY);
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");

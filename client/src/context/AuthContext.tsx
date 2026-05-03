@@ -70,13 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     const normalizedEmail = email.trim().toLowerCase();
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
     });
 
-    // Mettre à jour user/session immédiatement — sans attendre onAuthStateChange
-    // pour éviter la race condition dans ProtectedRoute
     if (!error && data.user) {
       setUser(data.user);
       setSession(data.session);

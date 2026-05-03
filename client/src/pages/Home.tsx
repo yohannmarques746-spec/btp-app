@@ -7,7 +7,7 @@ export default function Home() {
   const { brandName, brandTagline } = useBranding();
 
   const handleButtonClick = () => {
-    setLocation("/auth");
+    setLocation("/login");
   };
 
   return (

@@ -544,4 +544,430 @@ router.delete("/co-owners/:userId", async (req: Request, res: Response): Promise
   }
 });
 
+// ─── GET /api/team/members — liste avec filtre status ────────────────────────
+router.get("/members", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSupabaseUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Non autorisé" });
+    return;
+  }
+
+  const { ownerId, status } = req.query as { ownerId?: string; status?: string };
+  if (!ownerId) {
+    res.status(400).json({ error: "ownerId requis" });
+    return;
+  }
+
+  const isOwner = user.id === ownerId;
+  if (!isOwner) {
+    const { data } = await supabaseServer.rpc("is_co_owner", {
+      p_owner_id: ownerId,
+      p_user_id: user.id,
+    });
+    if (!data) {
+      res.status(403).json({ error: "Accès refusé" });
+      return;
+    }
+  }
+
+  try {
+    let query = supabaseServer
+      .from("team_members")
+      .select("id, name, email, role, status, permissions, auth_user_id, confirmed_at, created_at, pin_hash")
+      .eq("user_id", ownerId)
+      .order("created_at", { ascending: false });
+
+    if (status) {
+      query = query.eq("status", status);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      res.status(500).json({ error: "Erreur serveur" });
+      return;
+    }
+
+    const members = (data ?? []).map((m: Record<string, unknown>) => ({
+      ...m,
+      has_pin: !!m.pin_hash,
+      pin_hash: undefined,
+    }));
+
+    res.json(members);
+  } catch (err) {
+    console.error("[team/members GET]", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ─── GET /api/team/members/:id ────────────────────────────────────────────────
+router.get("/members/:id", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSupabaseUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Non autorisé" });
+    return;
+  }
+
+  const { ownerId } = req.query as { ownerId?: string };
+  if (!ownerId) {
+    res.status(400).json({ error: "ownerId requis" });
+    return;
+  }
+
+  const isOwner = user.id === ownerId;
+  if (!isOwner) {
+    const { data: isCoOwner } = await supabaseServer.rpc("is_co_owner", {
+      p_owner_id: ownerId,
+      p_user_id: user.id,
+    });
+    if (!isCoOwner) {
+      res.status(403).json({ error: "Accès refusé" });
+      return;
+    }
+  }
+
+  try {
+    const { data: member, error } = await supabaseServer
+      .from("team_members")
+      .select("id, name, email, role, status, permissions, auth_user_id, confirmed_at, created_at, pin_hash")
+      .eq("id", req.params.id)
+      .eq("user_id", ownerId)
+      .maybeSingle();
+
+    if (error) {
+      res.status(500).json({ error: "Erreur serveur" });
+      return;
+    }
+    if (!member) {
+      res.status(404).json({ error: "Membre introuvable" });
+      return;
+    }
+
+    // Co-patron ne peut pas voir les co-patrons ou patrons
+    if (!isOwner && (member as Record<string, unknown>).role === "co_owner") {
+      res.status(403).json({ error: "Accès refusé" });
+      return;
+    }
+
+    const result = { ...(member as Record<string, unknown>), has_pin: !!(member as Record<string, unknown>).pin_hash, pin_hash: undefined };
+    res.json(result);
+  } catch (err) {
+    console.error("[team/members/:id GET]", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ─── POST /api/team/members/:id/confirm — approuver + configurer ──────────────
+router.post("/members/:id/confirm", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSupabaseUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Non autorisé" });
+    return;
+  }
+
+  const { ownerId, role, pin } = req.body as {
+    ownerId?: string;
+    role?: string;
+    pin?: string;
+  };
+
+  if (!ownerId || !role) {
+    res.status(400).json({ error: "ownerId et role requis" });
+    return;
+  }
+
+  const isOwner = user.id === ownerId;
+  if (!isOwner) {
+    const { data } = await supabaseServer.rpc("is_co_owner", {
+      p_owner_id: ownerId,
+      p_user_id: user.id,
+    });
+    if (!data) {
+      res.status(403).json({ error: "Accès refusé" });
+      return;
+    }
+  }
+
+  if (pin && !isValidPin(pin)) {
+    res.status(400).json({ error: "Le PIN doit être 6 chiffres" });
+    return;
+  }
+
+  try {
+    const { error } = await supabaseServer.rpc("confirm_team_member", {
+      p_member_id: req.params.id,
+      p_owner_id: ownerId,
+      p_role: role,
+      p_pin: pin ?? null,
+    });
+
+    if (error) {
+      if (error.message?.includes("PIN_DUPLICATE")) {
+        res.status(409).json({ error: "Ce PIN est déjà utilisé par un autre membre" });
+        return;
+      }
+      console.error("[team/members/:id/confirm] RPC error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[team/members/:id/confirm]", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ─── POST /api/team/members/:id/refuse ───────────────────────────────────────
+router.post("/members/:id/refuse", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSupabaseUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Non autorisé" });
+    return;
+  }
+
+  const { ownerId } = req.body as { ownerId?: string };
+  if (!ownerId) {
+    res.status(400).json({ error: "ownerId requis" });
+    return;
+  }
+
+  const isOwner = user.id === ownerId;
+  if (!isOwner) {
+    const { data } = await supabaseServer.rpc("is_co_owner", {
+      p_owner_id: ownerId,
+      p_user_id: user.id,
+    });
+    if (!data) {
+      res.status(403).json({ error: "Accès refusé" });
+      return;
+    }
+  }
+
+  try {
+    const { error } = await supabaseServer
+      .from("team_members")
+      .update({ status: "refusé" })
+      .eq("id", req.params.id)
+      .eq("user_id", ownerId);
+
+    if (error) {
+      res.status(500).json({ error: "Erreur serveur" });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[team/members/:id/refuse]", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ─── PATCH /api/team/members/:id/permissions ──────────────────────────────────
+router.patch("/members/:id/permissions", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSupabaseUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Non autorisé" });
+    return;
+  }
+
+  const { ownerId, permissions } = req.body as { ownerId?: string; permissions?: object };
+  if (!ownerId || !permissions) {
+    res.status(400).json({ error: "ownerId et permissions requis" });
+    return;
+  }
+
+  const isOwner = user.id === ownerId;
+  if (!isOwner) {
+    const { data } = await supabaseServer.rpc("is_co_owner", {
+      p_owner_id: ownerId,
+      p_user_id: user.id,
+    });
+    if (!data) {
+      res.status(403).json({ error: "Accès refusé" });
+      return;
+    }
+  }
+
+  try {
+    // Co-patron ne peut gérer que les employés
+    if (!isOwner) {
+      const { data: member } = await supabaseServer
+        .from("team_members")
+        .select("role")
+        .eq("id", req.params.id)
+        .eq("user_id", ownerId)
+        .maybeSingle();
+      if (member && (member as Record<string, unknown>).role === "co_owner") {
+        res.status(403).json({ error: "Vous ne pouvez modifier que les employés" });
+        return;
+      }
+    }
+
+    const { error } = await supabaseServer
+      .from("team_members")
+      .update({ permissions })
+      .eq("id", req.params.id)
+      .eq("user_id", ownerId);
+
+    if (error) {
+      res.status(500).json({ error: "Erreur serveur" });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[team/members/:id/permissions PATCH]", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ─── PATCH /api/team/members/:id/status ──────────────────────────────────────
+router.patch("/members/:id/status", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSupabaseUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Non autorisé" });
+    return;
+  }
+
+  const { ownerId, status } = req.body as { ownerId?: string; status?: string };
+  if (!ownerId || !status) {
+    res.status(400).json({ error: "ownerId et status requis" });
+    return;
+  }
+
+  const allowedStatuses = ["actif", "bloqué", "supprimé"];
+  if (!allowedStatuses.includes(status)) {
+    res.status(400).json({ error: "Status invalide" });
+    return;
+  }
+
+  const isOwner = user.id === ownerId;
+  if (!isOwner) {
+    const { data } = await supabaseServer.rpc("is_co_owner", {
+      p_owner_id: ownerId,
+      p_user_id: user.id,
+    });
+    if (!data) {
+      res.status(403).json({ error: "Accès refusé" });
+      return;
+    }
+  }
+
+  try {
+    // Co-patron ne peut gérer que les employés
+    if (!isOwner) {
+      const { data: member } = await supabaseServer
+        .from("team_members")
+        .select("role")
+        .eq("id", req.params.id)
+        .eq("user_id", ownerId)
+        .maybeSingle();
+      if (member && (member as Record<string, unknown>).role === "co_owner") {
+        res.status(403).json({ error: "Vous ne pouvez modifier que les employés" });
+        return;
+      }
+    }
+
+    const { error } = await supabaseServer
+      .from("team_members")
+      .update({ status })
+      .eq("id", req.params.id)
+      .eq("user_id", ownerId);
+
+    if (error) {
+      res.status(500).json({ error: "Erreur serveur" });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[team/members/:id/status PATCH]", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ─── DELETE /api/team/members/:id — suppression définitive ───────────────────
+router.delete("/members/:id", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSupabaseUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Non autorisé" });
+    return;
+  }
+
+  const { ownerId } = req.body as { ownerId?: string };
+  if (!ownerId) {
+    res.status(400).json({ error: "ownerId requis" });
+    return;
+  }
+
+  if (user.id !== ownerId) {
+    res.status(403).json({ error: "Seul le patron peut supprimer définitivement" });
+    return;
+  }
+
+  try {
+    const { error } = await supabaseServer
+      .from("team_members")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("user_id", ownerId);
+
+    if (error) {
+      res.status(500).json({ error: "Erreur serveur" });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[team/members/:id DELETE]", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ─── POST /api/team/members/me/set-pin — employé crée son PIN ────────────────
+router.post("/members/me/set-pin", async (req: Request, res: Response): Promise<void> => {
+  const memberToken = extractBearer(req);
+  if (!memberToken) {
+    res.status(401).json({ error: "Token manquant" });
+    return;
+  }
+
+  const { pin, oldPin } = req.body as { pin?: string; oldPin?: string };
+  if (!pin || !isValidPin(pin)) {
+    res.status(400).json({ error: "PIN invalide — 6 chiffres requis" });
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseServer.rpc("set_member_pin_self", {
+      p_token: memberToken,
+      p_new_pin: pin,
+      p_old_pin: oldPin ?? null,
+    });
+
+    if (error) {
+      const msg = error.message ?? "";
+      if (msg.includes("UNAUTHORIZED")) {
+        res.status(401).json({ error: "Session expirée" });
+      } else if (msg.includes("OLD_PIN_REQUIRED")) {
+        res.status(400).json({ error: "Ancien PIN requis pour le modifier" });
+      } else if (msg.includes("OLD_PIN_INCORRECT")) {
+        res.status(401).json({ error: "Ancien PIN incorrect" });
+      } else if (msg.includes("PIN_DUPLICATE")) {
+        res.status(409).json({ error: "Ce PIN est déjà utilisé par un autre membre" });
+      } else {
+        console.error("[team/members/me/set-pin] RPC error:", error);
+        res.status(500).json({ error: "Erreur serveur" });
+      }
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[team/members/me/set-pin]", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 export const teamAuthRouter = router;

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -19,6 +20,7 @@ import PlanningPage from "@/pages/PlanningPage";
 import ClientsPage from "@/pages/ClientsPage";
 import CRMPipelinePage from "@/pages/CRMPipelinePage";
 import TeamPage from "@/pages/TeamPage";
+import TeamPermissionsPage from "@/pages/TeamPermissionsPage";
 import TeamMemberLogin from "@/pages/TeamMemberLogin";
 import TeamMemberDashboard from "@/pages/TeamMemberDashboard";
 import PaymentsPage from "@/pages/PaymentsPage";
@@ -52,21 +54,36 @@ const pageVariants = {
   }
 };
 
+function AuthLegacyRedirect() {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    setLocation("/login", { replace: true });
+  }, [setLocation]);
+
+  return null;
+}
+
 function Router() {
   const [location] = useLocation();
   // Liens sidebar orphelins à supprimer dans Sidebar/TeamSidebar:
   // /dashboard/estimation, /dashboard/ai-visualization
 
   const getComponent = () => {
-    // Vérifier si c'est une route d'invitation
     if (location.startsWith('/invite/')) {
       return <InvitePage />;
+    }
+
+    if (location.startsWith('/dashboard/team/permissions/')) {
+      const memberId = location.split('/')[4] ?? '';
+      return <ProtectedRoute><TeamPermissionsPage memberId={memberId} /></ProtectedRoute>;
     }
 
     switch (location) {
       case "/":
         return <Home />;
       case "/auth":
+        return <AuthLegacyRedirect />;
       case "/login":
         return <LoginPage />;
       case "/dashboard":

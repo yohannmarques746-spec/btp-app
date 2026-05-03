@@ -62,6 +62,24 @@ export async function setupVite(app: Express, server: Server) {
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+    // #region agent log
+    fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "a13edd",
+      },
+      body: JSON.stringify({
+        sessionId: "a13edd",
+        runId: "run-1",
+        hypothesisId: "H1",
+        location: "server/vite.ts:catch-all-entry",
+        message: "Vite catch-all request",
+        data: { url },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
 
     try {
       const clientTemplate = path.resolve(
@@ -78,6 +96,27 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
       const page = await vite.transformIndexHtml(url, template);
+      const hasReactRefreshRuntime =
+        page.includes("/@react-refresh") || page.includes("react-refresh");
+      const hasPreambleMarker = page.includes("__vite_plugin_react_preamble_installed__");
+      // #region agent log
+      fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Debug-Session-Id": "a13edd",
+        },
+        body: JSON.stringify({
+          sessionId: "a13edd",
+          runId: "run-1",
+          hypothesisId: "H2",
+          location: "server/vite.ts:after-transformIndexHtml",
+          message: "Transformed HTML preamble diagnostics",
+          data: { url, hasReactRefreshRuntime, hasPreambleMarker },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);

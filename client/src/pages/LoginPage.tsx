@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Mail, Lock, Eye, EyeOff, Loader2, User, LogIn, UserPlus } from "lucide-react"
+import { Mail, Lock, Eye, EyeOff, Loader2, User, LogIn, UserPlus, Hash, Clock } from "lucide-react"
 import { useLocation } from "wouter"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabaseClient"
@@ -12,9 +12,6 @@ import { cn } from "@/lib/utils"
 import { formatSupabaseAuthError } from "@/lib/authErrors"
 import { useBranding } from "@/hooks/useBranding"
 
-// ---------------------------------------------------------------------------
-// Onglet actif persistant
-// ---------------------------------------------------------------------------
 type AuthMode = "signIn" | "signUp"
 const AUTH_TAB_STORAGE_KEY = "app:auth-tab"
 const LEGACY_AUTH_TAB_STORAGE_KEY = "caldy:auth-tab"
@@ -27,9 +24,7 @@ function useAuthMode(): [AuthMode, (m: AuthMode) => void] {
       try {
         window.localStorage.setItem(AUTH_TAB_STORAGE_KEY, nextValue)
         window.localStorage.removeItem(LEGACY_AUTH_TAB_STORAGE_KEY)
-      } catch {
-        // noop
-      }
+      } catch { /* noop */ }
     }
     return nextValue === "signUp" ? "signUp" : "signIn"
   })
@@ -38,20 +33,16 @@ function useAuthMode(): [AuthMode, (m: AuthMode) => void] {
     try {
       window.localStorage.setItem(AUTH_TAB_STORAGE_KEY, next)
       window.localStorage.removeItem(LEGACY_AUTH_TAB_STORAGE_KEY)
-    } catch {
-      // noop
-    }
+    } catch { /* noop */ }
   }
   return [mode, setMode]
 }
 
-// ---------------------------------------------------------------------------
-// Champ générique avec icône + erreur animée
-// ---------------------------------------------------------------------------
 interface FieldProps {
   id: string
   label: string
   type?: string
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"]
   icon: React.ReactNode
   value: string
   onChange: (v: string) => void
@@ -59,9 +50,10 @@ interface FieldProps {
   placeholder?: string
   autoComplete?: string
   trailing?: React.ReactNode
+  hint?: string
 }
 
-function Field({ id, label, type = "text", icon, value, onChange, error, placeholder, autoComplete, trailing }: FieldProps) {
+function Field({ id, label, type = "text", inputMode, icon, value, onChange, error, placeholder, autoComplete, trailing, hint }: FieldProps) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id} className="text-white/80 text-xs font-medium">{label}</Label>
@@ -70,6 +62,7 @@ function Field({ id, label, type = "text", icon, value, onChange, error, placeho
         <Input
           id={id}
           type={type}
+          inputMode={inputMode}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -87,6 +80,7 @@ function Field({ id, label, type = "text", icon, value, onChange, error, placeho
         />
         {trailing && <span className="absolute right-2 top-1/2 -translate-y-1/2">{trailing}</span>}
       </div>
+      {hint && !error && <p className="text-xs text-white/40 pl-1">{hint}</p>}
       <AnimatePresence mode="wait">
         {error && (
           <motion.p key={error} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="text-xs text-red-300 pl-1">
@@ -98,9 +92,6 @@ function Field({ id, label, type = "text", icon, value, onChange, error, placeho
   )
 }
 
-// ---------------------------------------------------------------------------
-// Bouton d'onglet avec indicateur animé
-// ---------------------------------------------------------------------------
 interface TabButtonProps {
   active: boolean
   onClick: () => void
@@ -134,46 +125,158 @@ function TabButton({ active, onClick, icon, label }: TabButtonProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Formulaire connexion (Supabase signIn)
+// Formulaire connexion
 // ---------------------------------------------------------------------------
 function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; emailPlaceholder: string }) {
   const { signIn } = useAuth()
+  const [, setLocation] = useLocation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [pin, setPin] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingApproval, setPendingApproval] = useState(false)
+  const [blockedMsg, setBlockedMsg] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setPendingApproval(false)
+    setBlockedMsg(null)
+
     if (!email || !password) { setError("Veuillez remplir tous les champs"); return }
 
-    // Validation frontend simple
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email.trim())) { setError("Adresse email invalide"); return }
     if (password.length < 6) { setError("Le mot de passe doit contenir au moins 6 caractères"); return }
 
+    if (pin && !/^\d{6}$/.test(pin)) { setError("Le PIN doit être 6 chiffres"); return }
+
     setLoading(true)
     try {
-      const { error } = await signIn(email, password)
-      if (error) {
-        const msg = error.message ?? ""
+      // 1. Authentification Supabase
+      const { error: authError } = await signIn(email, password)
+      if (authError) {
+        const msg = authError.message ?? ""
         if (/invalid login credentials|invalid_credentials/i.test(msg)) {
-          setError("Email ou mot de passe incorrect. Si le compte vient d'être créé, confirmez d'abord l'email.")
+          setError("Email ou mot de passe incorrect.")
         } else if (/email not confirmed/i.test(msg)) {
           setError("Email non confirmé — vérifiez votre boîte mail et cliquez sur le lien de confirmation.")
         } else {
-          setError(formatSupabaseAuthError(error, msg || "Une erreur est survenue"))
+          setError(formatSupabaseAuthError(authError, msg || "Une erreur est survenue"))
         }
-      } else {
-        onSuccess()
+        return
       }
+
+      // 2. Récupérer le token Supabase
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setError("Erreur d'authentification. Réessayez.")
+        return
+      }
+
+      // 3. Résoudre le rôle (owner / employee)
+      const res = await fetch("/api/auth/resolve-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ pin: pin || undefined }),
+      })
+
+      const result = await res.json() as {
+        type?: string
+        status?: string
+        requiresPin?: boolean
+        token?: string
+        memberId?: string
+        name?: string
+        isNew?: boolean
+        error?: string
+        message?: string
+      }
+
+      if (!res.ok) {
+        if (result.error === "PIN_INCORRECT") {
+          setError("PIN incorrect. Vérifiez et réessayez.")
+        } else {
+          setError(result.message ?? result.error ?? "Erreur de connexion.")
+        }
+        await supabase.auth.signOut()
+        return
+      }
+
+      if (result.type === "owner") {
+        onSuccess()
+        return
+      }
+
+      if (result.type === "employee") {
+        // Pour les employés, on efface la session Supabase et on utilise le token membre
+        await supabase.auth.signOut()
+
+        if (result.status === "en_attente_confirmation") {
+          setPendingApproval(true)
+          return
+        }
+
+        if (result.status === "bloqué") {
+          setBlockedMsg("Votre accès a été bloqué. Contactez votre patron.")
+          return
+        }
+
+        if (result.status === "refusé") {
+          setBlockedMsg("Votre demande d'accès a été refusée. Contactez votre patron.")
+          return
+        }
+
+        if (result.requiresPin) {
+          setError("PIN requis pour ce compte. Entrez votre PIN de 6 chiffres.")
+          return
+        }
+
+        if (result.token) {
+          localStorage.setItem("member-session-token", result.token)
+          setLocation("/team-members-dash")
+          return
+        }
+      }
+
+      setError("Réponse inattendue. Réessayez.")
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue")
     } finally {
       setLoading(false)
     }
+  }
+
+  // Écran "En attente d'approbation"
+  if (pendingApproval) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-4"
+      >
+        <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-center space-y-3">
+          <Clock className="w-10 h-10 mx-auto text-amber-300" />
+          <p className="text-amber-200 font-medium">Demande en attente</p>
+          <p className="text-sm text-amber-100/70">
+            Votre demande d'accès est en cours d'examen. Vous recevrez une notification par email une fois votre compte approuvé.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => { setPendingApproval(false); setEmail(""); setPassword(""); setPin("") }}
+          className="w-full h-11 border-white/20 text-white hover:bg-white/10"
+        >
+          Retour à la connexion
+        </Button>
+      </motion.div>
+    )
   }
 
   return (
@@ -190,6 +293,9 @@ function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; em
       {error && (
         <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">{error}</div>
       )}
+      {blockedMsg && (
+        <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">{blockedMsg}</div>
+      )}
       <Field
         id="signin-email" label="Email" type="email"
         icon={<Mail className="h-4 w-4" />}
@@ -205,10 +311,21 @@ function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; em
         trailing={
           <Button type="button" variant="ghost" size="icon" onClick={() => setShowPassword(v => !v)}
             className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10"
-            aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+            aria-label={showPassword ? "Masquer" : "Afficher"}>
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
         }
+      />
+      <Field
+        id="signin-pin" label="Code PIN (optionnel — employés uniquement)"
+        type="password"
+        inputMode="numeric"
+        icon={<Hash className="h-4 w-4" />}
+        value={pin}
+        onChange={(v) => setPin(v.replace(/\D/g, "").slice(0, 6))}
+        placeholder="••••••"
+        autoComplete="one-time-code"
+        hint="Laissez vide si votre patron ne vous a pas attribué de PIN"
       />
       <Button
         type="submit" disabled={loading}
@@ -223,7 +340,7 @@ function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; em
 }
 
 // ---------------------------------------------------------------------------
-// Formulaire inscription (Supabase signUp)
+// Formulaire inscription
 // ---------------------------------------------------------------------------
 function SignUpForm({ emailPlaceholder }: { emailPlaceholder: string }) {
   const { signUp } = useAuth()
@@ -248,7 +365,7 @@ function SignUpForm({ emailPlaceholder }: { emailPlaceholder: string }) {
       if (error) {
         setError(formatSupabaseAuthError(error, "Erreur lors de la création du compte"))
       } else {
-        setInfo("Compte créé. Vérifiez votre email pour confirmer le compte avant de vous connecter.")
+        setInfo("Compte créé ! Vérifiez votre email pour confirmer, puis connectez-vous. Votre accès sera soumis à l'approbation du patron.")
         setPendingEmail(email.trim().toLowerCase())
       }
     } catch (err: any) {
@@ -268,9 +385,10 @@ function SignUpForm({ emailPlaceholder }: { emailPlaceholder: string }) {
       options: { emailRedirectTo: `${window.location.origin}/login` },
     })
     if (error) {
-      setError(formatSupabaseAuthError(error, error.message || "Impossible de renvoyer l'email de confirmation."))
+      setError(formatSupabaseAuthError(error, error.message || "Impossible de renvoyer l'email."))
+    } else {
+      setInfo("Email de confirmation renvoyé. Vérifiez aussi vos spams.")
     }
-    else setInfo("Email de confirmation renvoyé. Vérifiez aussi vos spams.")
     setResendLoading(false)
   }
 
@@ -318,11 +436,14 @@ function SignUpForm({ emailPlaceholder }: { emailPlaceholder: string }) {
         trailing={
           <Button type="button" variant="ghost" size="icon" onClick={() => setShowPassword(v => !v)}
             className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10"
-            aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+            aria-label={showPassword ? "Masquer" : "Afficher"}>
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
         }
       />
+      <p className="text-xs text-white/40">
+        Après inscription, votre patron devra approuver votre accès.
+      </p>
       <Button
         type="submit" disabled={loading}
         className={cn("h-11 w-full text-sm font-semibold mt-2", "bg-gradient-to-r from-fuchsia-500 to-pink-500",
@@ -336,7 +457,7 @@ function SignUpForm({ emailPlaceholder }: { emailPlaceholder: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Page principale — fond MeshGradient + glassmorphism
+// Page principale
 // ---------------------------------------------------------------------------
 export default function LoginPage() {
   const [mode, setMode] = useAuthMode()
@@ -349,7 +470,6 @@ export default function LoginPage() {
   const colors = ["#0a1a3f", "#173a8a", "#2563eb", "#3b82f6", "#4338ca", "#111827"]
   const allowSignUp = true
 
-  // Redirection si déjà connecté
   useEffect(() => {
     if (!loading && user) setLocation("/dashboard")
   }, [user, loading, setLocation])
@@ -409,7 +529,7 @@ export default function LoginPage() {
             <p className="text-white/70 text-sm mt-1.5">
               {mode === "signIn"
                 ? `Connectez-vous à votre compte ${brandName}`
-                : `Créez votre compte pour accéder à ${brandName}`}
+                : `Rejoignez l'équipe ${brandName}`}
             </p>
           </div>
 
