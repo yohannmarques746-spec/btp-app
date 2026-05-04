@@ -5,8 +5,9 @@ import { Delete, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getCsrfToken } from "@/lib/csrf";
+import { OWNERS_LIST } from "@/lib/ownerUtils";
 
-const OWNER_ID = import.meta.env.VITE_OWNER_ID as string | undefined;
+const OWNER_ID = OWNERS_LIST[0];
 const PIN_LENGTH = 6;
 const MAX_ATTEMPTS = 5;
 
@@ -61,7 +62,7 @@ export default function TeamMemberLogin() {
     if (!OWNER_ID) {
       toast({
         title: "Configuration manquante",
-        description: "VITE_OWNER_ID non défini. Contactez l'administrateur.",
+        description: "VITE_OWNER_IDS non défini. Contactez l'administrateur.",
         variant: "destructive",
       });
       return;

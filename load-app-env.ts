@@ -33,6 +33,7 @@ export function loadAppEnv(repoRoot: string): void {
       "SUPABASE_URL",
       "SUPABASE_ANON_KEY",
       "VITE_OWNER_ID",
+      "VITE_OWNER_IDS",
     ]);
     for (const [key, value] of Object.entries(parsed)) {
       if (!clientFallbackKeys.has(key)) continue;
@@ -44,10 +45,20 @@ export function loadAppEnv(repoRoot: string): void {
       }
     }
 
-    const clientOwner =
-      typeof parsed.VITE_OWNER_ID === "string" ? parsed.VITE_OWNER_ID.trim() : "";
-    if (clientOwner && !isUsableOwnerId(process.env.VITE_OWNER_ID)) {
-      process.env.VITE_OWNER_ID = clientOwner;
+    // Gérer les deux formats : ancien VITE_OWNER_ID et nouveau VITE_OWNER_IDS
+    const clientOwners =
+      typeof parsed.VITE_OWNER_IDS === "string" ? parsed.VITE_OWNER_IDS.trim() : "";
+    if (clientOwners && !process.env.VITE_OWNER_IDS?.trim()) {
+      process.env.VITE_OWNER_IDS = clientOwners;
+    }
+
+    // Fallback : si VITE_OWNER_IDS n'existe pas mais VITE_OWNER_ID existe
+    if (!process.env.VITE_OWNER_IDS?.trim()) {
+      const clientOwner =
+        typeof parsed.VITE_OWNER_ID === "string" ? parsed.VITE_OWNER_ID.trim() : "";
+      if (clientOwner && isUsableOwnerId(clientOwner)) {
+        process.env.VITE_OWNER_IDS = clientOwner;
+      }
     }
   }
 

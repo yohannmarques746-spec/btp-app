@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
-
-const OWNER_ID = import.meta.env.VITE_OWNER_ID as string | undefined;
+import { isOwner, OWNERS_LIST } from '@/lib/ownerUtils';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,7 +14,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   const userId = user?.id ?? null;
-  const isMainOwner = !OWNER_ID || userId === OWNER_ID;
+  const isMainOwner = userId ? isOwner(userId) : false;
+  const firstOwnerId = OWNERS_LIST[0];
 
   useEffect(() => {
     // Réinitialiser à chaque changement d'utilisateur
@@ -28,14 +28,20 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       return;
     }
 
+    // L'utilisateur est propriétaire → accès complet
     if (isMainOwner) {
       setAuthorized(true);
       return;
     }
 
+    if (!firstOwnerId) {
+      signOut().then(() => setLocation('/login'));
+      return;
+    }
+
     // Vérifier si l'utilisateur est co-patron du propriétaire principal
     supabase
-      .rpc('is_co_owner', { p_owner_id: OWNER_ID, p_user_id: userId })
+      .rpc('is_co_owner', { p_owner_id: firstOwnerId, p_user_id: userId })
       .then(({ data, error }) => {
         if (error || !data) {
           // Utilisateur authentifié mais pas autorisé
@@ -45,7 +51,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, userId, isMainOwner]);
+  }, [loading, userId, isMainOwner, firstOwnerId]);
 
   // Pendant le chargement initial ou la vérification co-patron
   if (loading || (userId && authorized === null)) return null;

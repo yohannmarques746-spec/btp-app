@@ -3,8 +3,21 @@ import { supabaseServer } from "../supabaseServer";
 
 const router = Router();
 
-const OWNER_ID = process.env.VITE_OWNER_ID ?? "";
+// Charger la liste des propriétaires depuis VITE_OWNER_IDS (format: UUID1,UUID2,...)
+const OWNER_IDS = (process.env.VITE_OWNER_IDS ?? "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
+
+const OWNER_ID = OWNER_IDS[0] ?? ""; // Premier propriétaire (principal)
 const PIN_RE = /^\d{6}$/;
+
+/**
+ * Vérifie si un UUID est dans la liste des propriétaires
+ */
+function isOwner(userId: string): boolean {
+  return OWNER_IDS.includes(userId);
+}
 
 // POST /api/auth/resolve-session
 // Appelé après signIn Supabase pour déterminer le rôle et créer une session membre si employé
@@ -28,14 +41,14 @@ router.post("/resolve-session", async (req: Request, res: Response): Promise<voi
   }
 
   if (!OWNER_ID) {
-    res.status(500).json({ error: "VITE_OWNER_ID non configuré" });
+    res.status(500).json({ error: "VITE_OWNER_IDS non configuré" });
     return;
   }
 
   const { pin } = req.body as { pin?: string };
 
-  // Patron principal
-  if (user.id === OWNER_ID) {
+  // Propriétaire (dans la liste des propriétaires)
+  if (isOwner(user.id)) {
     res.json({ type: "owner" });
     return;
   }

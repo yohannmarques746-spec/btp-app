@@ -8,8 +8,7 @@ import { Loader2, ArrowLeft, Save, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-
-const OWNER_ID = (import.meta.env.VITE_OWNER_ID as string | undefined) ?? '';
+import { OWNERS_LIST } from '@/lib/ownerUtils';
 
 interface Permissions {
   crm: boolean;
@@ -71,7 +70,8 @@ export default function TeamPermissionsPage({ memberId }: TeamPermissionsPagePro
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const ownerId = OWNER_ID || user?.id || '';
+  // Utiliser le premier propriétaire
+  const ownerId = OWNERS_LIST[0] || user?.id || '';
 
   useEffect(() => {
     if (!memberId || !ownerId) return;

@@ -155,7 +155,7 @@ function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; em
 
     setLoading(true)
     try {
-      // 1. Authentification Supabase
+      // 1. Authentification Supabase (avec vérification du statut d'adhésion)
       const { error: authError } = await signIn(email, password)
       if (authError) {
         const msg = authError.message ?? ""
@@ -163,6 +163,14 @@ function SignInForm({ onSuccess, emailPlaceholder }: { onSuccess: () => void; em
           setError("Email ou mot de passe incorrect.")
         } else if (/email not confirmed/i.test(msg)) {
           setError("Email non confirmé — vérifiez votre boîte mail et cliquez sur le lien de confirmation.")
+        } else if (/en attente|approbation/i.test(msg)) {
+          setPendingApproval(true)
+        } else if (/bloqué|bloqu/i.test(msg)) {
+          setBlockedMsg(msg)
+        } else if (/refusé|refus/i.test(msg)) {
+          setBlockedMsg(msg)
+        } else if (/supprimé|supprim/i.test(msg)) {
+          setBlockedMsg(msg)
         } else {
           setError(formatSupabaseAuthError(authError, msg || "Une erreur est survenue"))
         }
@@ -368,8 +376,8 @@ function SignUpForm({ emailPlaceholder }: { emailPlaceholder: string }) {
         setInfo("Compte créé ! Vérifiez votre email pour confirmer, puis connectez-vous. Votre accès sera soumis à l'approbation du patron.")
         setPendingEmail(email.trim().toLowerCase())
       }
-    } catch (err: any) {
-      setError(err.message || "Une erreur est survenue")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue")
     } finally {
       setLoading(false)
     }

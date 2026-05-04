@@ -23,8 +23,7 @@ import { getCsrfToken } from '@/lib/csrf';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-
-const OWNER_ID = (import.meta.env.VITE_OWNER_ID as string | undefined) ?? '';
+import { isOwner, OWNERS_LIST } from '@/lib/ownerUtils';
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -928,8 +927,10 @@ export default function TeamPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const ownerId = OWNER_ID || user?.id || '';
-  const isPatron = user?.id === ownerId;
+  // Utiliser le premier propriétaire pour gérer les membres
+  const ownerId = OWNERS_LIST[0] || user?.id || '';
+  // L'utilisateur est patron s'il est dans la liste des propriétaires
+  const isPatron = user?.id ? isOwner(user.id) : false;
 
   const loadMembers = useCallback(async () => {
     if (!ownerId) return;
