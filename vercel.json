@@ -9,5 +9,8 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "VITE_OWNER_IDS": "4709322a-1d4b-4ac1-adf1-34329f31ce58,7eef8d67-dc97-4957-8863-7be105c1d272"
+  }
 }
