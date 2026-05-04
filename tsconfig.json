@@ -3,6 +3,7 @@
     "client/src/**/*",
     "shared/**/*",
     "server/**/*",
+    "api/**/*",
     "load-app-env.ts",
     "vite.config.ts"
   ],
