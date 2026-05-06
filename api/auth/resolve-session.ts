@@ -17,8 +17,6 @@ const SUPABASE_URL =
   process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY =
   process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? "";
-const OWNER_IDS = parseOwnerIds(process.env.VITE_OWNER_IDS);
-
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = "";
@@ -68,14 +66,19 @@ export default async function handler(
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined,
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  const ownerIds = parseOwnerIds(process.env.VITE_OWNER_IDS);
 
   const { status, body: responseBody } = await resolveSession({
     supabase,
     token,
     body,
-    ownerIds: OWNER_IDS,
+    ownerIds,
   });
 
   res.writeHead(status, { "Content-Type": "application/json" });

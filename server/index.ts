@@ -38,10 +38,11 @@ const buildCspPolicy = (env: NodeEnv): string => {
   return [
     "default-src 'self'",
     scriptSrc,
-    "style-src 'self' 'unsafe-inline'",
+    // client/index.html charge Inter / Fira Code depuis Google Fonts
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https:",
     `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com",
     "frame-ancestors 'none'",
   ].join("; ");
 };

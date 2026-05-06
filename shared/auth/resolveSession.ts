@@ -31,16 +31,6 @@ export interface ResolveSessionInput {
 
 const PIN_RE = /^\d{6}$/;
 
-const DEFAULT_PERMISSIONS = {
-  crm: false,
-  planning: false,
-  devis: false,
-  factures: false,
-  chantiers: false,
-  clients: false,
-  dashboard: false,
-} as const;
-
 /**
  * Résout la session d'un utilisateur authentifié Supabase.
  * Pure : ne dépend ni d'Express ni du runtime Node spécifique.
@@ -86,43 +76,79 @@ export async function resolveSession(
     return { status: 200, body: { type: "owner" } };
   }
 
-  // 4. EMPLOYÉ — lookup dans team_members
-  const { data: member, error: memberError } = await supabase
-    .from("team_members")
-    .select("id, name, email, role, status, permissions, pin_hash")
-    .eq("auth_user_id", user.id)
-    .eq("user_id", ownerId)
-    .maybeSingle();
+  // 4. EMPLOYÉ — lookup via RPC (RLS team_members : user_id = patron, la ligne n’est pas visible en SELECT direct)
+  const { data: memberRpcData, error: memberRpcError } = await supabase.rpc(
+    "get_member_by_auth_user",
+    { p_auth_user_id: user.id, p_owner_id: ownerId },
+  );
 
-  if (memberError) {
-    console.error("[resolveSession] DB error:", memberError);
+  if (memberRpcError) {
+    console.error("[resolveSession] get_member_by_auth_user:", memberRpcError);
     return { status: 500, body: { error: "Erreur serveur" } };
   }
 
-  // 4a. Première connexion — créer la demande d'adhésion
+  const memberRows = Array.isArray(memberRpcData)
+    ? memberRpcData
+    : memberRpcData
+      ? [memberRpcData]
+      : [];
+  const memberRow = memberRows[0] as
+    | {
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        status: string;
+        permissions: unknown;
+        has_pin: boolean;
+      }
+    | undefined;
+
+  const member = memberRow
+    ? {
+        id: memberRow.id,
+        name: memberRow.name,
+        email: memberRow.email,
+        role: memberRow.role,
+        status: memberRow.status,
+        permissions: memberRow.permissions,
+        has_pin: memberRow.has_pin,
+      }
+    : null;
+
+  // 4a. Première connexion — créer la demande d'adhésion (RPC SECURITY DEFINER : l'INSERT direct viole la RLS team_members)
   if (!member) {
     const email = user.email ?? "";
     const name =
       (user.user_metadata?.full_name as string | undefined) ?? email;
 
-    const { data: newMember, error: createError } = await supabase
-      .from("team_members")
-      .insert({
-        user_id: ownerId,
-        auth_user_id: user.id,
-        email,
-        name,
-        role: "employee",
-        status: "en_attente_confirmation",
-        permissions: DEFAULT_PERMISSIONS,
-      })
-      .select("id")
-      .single();
+    const { data: newMemberId, error: rpcError } = await supabase.rpc(
+      "register_pending_team_member",
+      {
+        p_owner_id: ownerId,
+        p_email: email,
+        p_name: name,
+      },
+    );
 
-    if (createError) {
-      console.error("[resolveSession] create error:", createError);
+    if (rpcError) {
+      console.error("[resolveSession] register_pending_team_member:", rpcError);
+      const msg = rpcError.message ?? "";
+      if (msg.includes("INVALID_OWNER")) {
+        return { status: 403, body: { error: "Entreprise non reconnue." } };
+      }
+      if (msg.includes("NOT_AUTHENTICATED")) {
+        return { status: 401, body: { error: "Token invalide" } };
+      }
       return { status: 500, body: { error: "Erreur serveur" } };
     }
+
+    const memberId =
+      typeof newMemberId === "string"
+        ? newMemberId
+        : newMemberId === null || newMemberId === undefined
+          ? undefined
+          : String(newMemberId);
 
     return {
       status: 200,
@@ -130,7 +156,7 @@ export async function resolveSession(
         type: "employee",
         status: "en_attente_confirmation",
         isNew: true,
-        memberId: newMember?.id,
+        ...(memberId && { memberId }),
       },
     };
   }
@@ -155,7 +181,7 @@ export async function resolveSession(
   }
 
   // 4c. Membre actif — vérifier PIN si présent
-  const requiresPin = !!member.pin_hash;
+  const requiresPin = !!member.has_pin;
   const pin = body.pin;
 
   if (requiresPin && (!pin || !PIN_RE.test(pin))) {
