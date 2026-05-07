@@ -11,7 +11,7 @@ import type { IncomingMessage, ServerResponse } from "http";
 import {
   parseOwnerIds,
   resolveSession,
-} from "../../shared/auth/resolveSession";
+} from "../../shared/auth/resolveSession.js";
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";

@@ -1,4 +1,4 @@
-import { getSupabaseServer } from "../auth/supabaseFactory";
+import { getSupabaseServer } from "../auth/supabaseFactory.js";
 
 export async function listCoOwners(ownerId: string): Promise<{ status: number; body: unknown }> {
   const supabase = getSupabaseServer();

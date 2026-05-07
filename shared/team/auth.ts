@@ -1,5 +1,5 @@
-import { getSupabaseServer } from "../auth/supabaseFactory";
-import { unwrapRpc } from "../auth/serverlessHelpers";
+import { getSupabaseServer } from "../auth/supabaseFactory.js";
+import { unwrapRpc } from "../auth/serverlessHelpers.js";
 
 const PIN_RE = /^\d{6}$/;
 

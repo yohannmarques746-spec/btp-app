@@ -34,15 +34,15 @@ import {
   extractBearer,
   requireCsrf,
   requireRateLimit,
-} from "../../shared/auth/serverlessHelpers";
-import { requireAuth, requireOwnerOrCoOwner } from "../../shared/auth/middleware";
-import { generateCsrfToken } from "../../shared/auth/csrf";
+} from "../../shared/auth/serverlessHelpers.js";
+import { requireAuth, requireOwnerOrCoOwner } from "../../shared/auth/middleware.js";
+import { generateCsrfToken } from "../../shared/auth/csrf.js";
 import {
   loginPin,
   loginInvite,
   logoutMember,
   getMemberSession,
-} from "../../shared/team/auth";
+} from "../../shared/team/auth.js";
 import {
   listMembers,
   getMember,
@@ -54,9 +54,9 @@ import {
   updateStatus,
   deleteMember,
   setOwnPin,
-} from "../../shared/team/members";
-import { listNotes, createNote } from "../../shared/team/notes";
-import { listCoOwners, addCoOwner, removeCoOwner } from "../../shared/team/coOwners";
+} from "../../shared/team/members.js";
+import { listNotes, createNote } from "../../shared/team/notes.js";
+import { listCoOwners, addCoOwner, removeCoOwner } from "../../shared/team/coOwners.js";
 
 type Result = { status: number; body: unknown };
 

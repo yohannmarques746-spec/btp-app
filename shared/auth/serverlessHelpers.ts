@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { verifyCsrfToken } from "./csrf";
-import { checkAndIncrementLimit } from "./rateLimit";
+import { verifyCsrfToken } from "./csrf.js";
+import { checkAndIncrementLimit } from "./rateLimit.js";
 
 export function withCors(req: VercelRequest, res: VercelResponse): boolean {
   res.setHeader("Access-Control-Allow-Origin", "*");

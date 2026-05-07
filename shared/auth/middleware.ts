@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { User } from "@supabase/supabase-js";
-import { getSupabaseServer } from "./supabaseFactory";
-import { extractBearer } from "./serverlessHelpers";
+import { getSupabaseServer } from "./supabaseFactory.js";
+import { extractBearer } from "./serverlessHelpers.js";
 
 export async function requireAuth(
   req: VercelRequest,
