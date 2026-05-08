@@ -1,11 +1,16 @@
 // ============================================================================
-// api/team/[...path].ts
+// api/team-router.ts
 //
 // Dispatcher unique pour TOUS les endpoints /api/team/*.
-// Remplace les 17 fichiers serverless individuels par UN seul, pour rester
-// sous la limite Vercel Hobby de 12 serverless functions par déploiement.
+// Vercel route les requêtes via un rewrite dans vercel.json :
+//   /api/team/(.*) → /api/team-router?path=$1
 //
-// Routing :
+// Pourquoi ce détour : le routing dynamique Vercel `[...slug].ts` n'a pas
+// fonctionné de façon fiable pour les méthodes POST/PATCH/DELETE — Vercel
+// retournait 404 systématiquement même si la fonction était bien déployée.
+// Un fichier sans brackets + un rewrite explicite contournent le problème.
+//
+// Routing interne (basé sur req.query.path) :
 //   GET    /api/team/csrf-token
 //   POST   /api/team/login-pin (+ alias /login)
 //   POST   /api/team/login-invite
@@ -34,15 +39,15 @@ import {
   extractBearer,
   requireCsrf,
   requireRateLimit,
-} from "../../shared/auth/serverlessHelpers.js";
-import { requireAuth, requireOwnerOrCoOwner } from "../../shared/auth/middleware.js";
-import { generateCsrfToken } from "../../shared/auth/csrf.js";
+} from "../shared/auth/serverlessHelpers.js";
+import { requireAuth, requireOwnerOrCoOwner } from "../shared/auth/middleware.js";
+import { generateCsrfToken } from "../shared/auth/csrf.js";
 import {
   loginPin,
   loginInvite,
   logoutMember,
   getMemberSession,
-} from "../../shared/team/auth.js";
+} from "../shared/team/auth.js";
 import {
   listMembers,
   getMember,
@@ -54,9 +59,9 @@ import {
   updateStatus,
   deleteMember,
   setOwnPin,
-} from "../../shared/team/members.js";
-import { listNotes, createNote } from "../../shared/team/notes.js";
-import { listCoOwners, addCoOwner, removeCoOwner } from "../../shared/team/coOwners.js";
+} from "../shared/team/members.js";
+import { listNotes, createNote } from "../shared/team/notes.js";
+import { listCoOwners, addCoOwner, removeCoOwner } from "../shared/team/coOwners.js";
 
 type Result = { status: number; body: unknown };
 
@@ -82,33 +87,27 @@ export default async function handler(
 ): Promise<void> {
   if (withCors(req, res)) return;
 
-  // ─── DEBUG : voir comment Vercel passe les segments d'URL ────────────────
-  console.log("[DEBUG team router]", {
-    url: req.url,
-    method: req.method,
-    queryKeys: Object.keys(req.query),
-    queryPath: req.query.path,
-    queryPathType: typeof req.query.path,
-    queryPathIsArray: Array.isArray(req.query.path),
-  });
-
-  // req.query.path est un tableau de segments d'URL après /api/team/
-  // Ex: /api/team/members/abc-123/confirm → path = ["members", "abc-123", "confirm"]
-  // Fallback : si Vercel ne match pas le catch-all, on parse req.url manuellement.
+  // Le rewrite vercel.json passe le sous-path après /api/team/ dans
+  // req.query.path (ex: "members/abc-123/confirm"). Fallback sur req.url.
   let segments: string[] = [];
   const rawPath = req.query.path;
   if (Array.isArray(rawPath)) {
-    segments = rawPath;
+    segments = rawPath.flatMap((p) => p.split("/")).filter(Boolean);
   } else if (typeof rawPath === "string" && rawPath.length > 0) {
     segments = rawPath.split("/").filter(Boolean);
   } else if (req.url) {
-    // Fallback : extraire les segments après /api/team/ depuis req.url
     const urlPath = req.url.split("?")[0] ?? "";
     const match = urlPath.match(/^\/api\/team\/(.+)$/);
     if (match && match[1]) {
       segments = match[1].split("/").filter(Boolean);
     }
   }
+
+  console.log("[team-router]", {
+    method: req.method,
+    url: req.url,
+    segments,
+  });
 
   const method = req.method ?? "GET";
   const [a, b, c] = segments;
@@ -200,7 +199,6 @@ export default async function handler(
     const auth = await requireAuth(req, res);
     if (!auth) return;
 
-    // /api/team/co-owners
     if (segments.length === 1) {
       if (method === "GET") {
         const ownerId = req.query.ownerId as string | undefined;
@@ -220,7 +218,6 @@ export default async function handler(
       return methodNotAllowed(res);
     }
 
-    // /api/team/co-owners/:userId
     if (segments.length === 2) {
       if (method !== "DELETE") return methodNotAllowed(res);
       if (!requireCsrf(req, res)) return;
@@ -237,7 +234,6 @@ export default async function handler(
 
   // ─── /api/team/members et sous-routes ─────────────────────────────────────
   if (a === "members") {
-    // /api/team/members (GET + POST)
     if (segments.length === 1) {
       const auth = await requireAuth(req, res);
       if (!auth) return;
