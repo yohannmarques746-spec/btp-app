@@ -5,7 +5,16 @@ import { checkAndIncrementLimit } from "./rateLimit.js";
 export function withCors(req: VercelRequest, res: VercelResponse): boolean {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token");
+  // Reflète exactement les headers demandés par le navigateur dans le preflight,
+  // pour éviter d'oublier un header (ex: x-debug-session-id injecté par Cursor).
+  // À défaut, fallback sur la liste connue + wildcard.
+  const requestedHeaders = req.headers["access-control-request-headers"];
+  const allowedHeaders =
+    typeof requestedHeaders === "string" && requestedHeaders.length > 0
+      ? requestedHeaders
+      : "Content-Type, Authorization, X-CSRF-Token, X-Debug-Session-Id";
+  res.setHeader("Access-Control-Allow-Headers", allowedHeaders);
+  res.setHeader("Access-Control-Max-Age", "600");
 
   if (req.method === "OPTIONS") {
     res.status(204).end();
