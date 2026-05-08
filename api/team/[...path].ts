@@ -82,14 +82,33 @@ export default async function handler(
 ): Promise<void> {
   if (withCors(req, res)) return;
 
+  // ─── DEBUG : voir comment Vercel passe les segments d'URL ────────────────
+  console.log("[DEBUG team router]", {
+    url: req.url,
+    method: req.method,
+    queryKeys: Object.keys(req.query),
+    queryPath: req.query.path,
+    queryPathType: typeof req.query.path,
+    queryPathIsArray: Array.isArray(req.query.path),
+  });
+
   // req.query.path est un tableau de segments d'URL après /api/team/
   // Ex: /api/team/members/abc-123/confirm → path = ["members", "abc-123", "confirm"]
+  // Fallback : si Vercel ne match pas le catch-all, on parse req.url manuellement.
+  let segments: string[] = [];
   const rawPath = req.query.path;
-  const segments: string[] = Array.isArray(rawPath)
-    ? rawPath
-    : typeof rawPath === "string"
-      ? [rawPath]
-      : [];
+  if (Array.isArray(rawPath)) {
+    segments = rawPath;
+  } else if (typeof rawPath === "string" && rawPath.length > 0) {
+    segments = rawPath.split("/").filter(Boolean);
+  } else if (req.url) {
+    // Fallback : extraire les segments après /api/team/ depuis req.url
+    const urlPath = req.url.split("?")[0] ?? "";
+    const match = urlPath.match(/^\/api\/team\/(.+)$/);
+    if (match && match[1]) {
+      segments = match[1].split("/").filter(Boolean);
+    }
+  }
 
   const method = req.method ?? "GET";
   const [a, b, c] = segments;
