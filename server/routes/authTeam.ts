@@ -3,6 +3,7 @@ import { supabaseServer } from "../supabaseServer";
 import { generateCsrfToken, csrfMiddleware } from "../middleware/csrf";
 import { rateLimitLoginMember } from "../middleware/rateLimit";
 import { loginPin, loginInvite, logoutMember, getMemberSession } from "@shared/team/auth";
+import { signSupabaseJwt } from "../jwtSigner";
 import { listMembers, getMember, createMember, updateMemberPin, confirmMember, refuseMember, updatePermissions, updateStatus, deleteMember, setOwnPin } from "@shared/team/members";
 import { listNotes, createNote } from "@shared/team/notes";
 import { listCoOwners, addCoOwner, removeCoOwner } from "@shared/team/coOwners";
@@ -40,8 +41,27 @@ router.use(csrfMiddleware);
 async function handleLoginPin(req: Request, res: Response): Promise<void> {
   const { pin, ownerId } = req.body as { pin?: string; ownerId?: string };
   if (!pin || !ownerId) { res.status(400).json({ error: "PIN et ownerId requis" }); return; }
+
   const result = await loginPin(pin, ownerId);
-  res.status(result.status).json(result.body);
+  if (result.status !== 200) {
+    res.status(result.status).json(result.body);
+    return;
+  }
+
+  // Signer un JWT Supabase-compatible pour que auth.uid() soit valorisé côté client.
+  // Null si auth_user_id absent (compte PIN-only sans lien Supabase Auth) ou si
+  // SUPABASE_JWT_SECRET n'est pas configuré.
+  let supabaseAccessToken: string | null = null;
+  if (result.authUserId && result.memberEmail) {
+    supabaseAccessToken = await signSupabaseJwt(result.authUserId, result.memberEmail);
+  } else if (!result.authUserId) {
+    console.warn(
+      `[handleLoginPin] Membre ${result.body.memberId} sans auth_user_id — ` +
+        "RLS bloquera les requêtes Supabase directes. Demandez au patron de réenvoyer l'invitation.",
+    );
+  }
+
+  res.status(200).json({ ...result.body, supabaseAccessToken });
 }
 router.post("/login-pin", rateLimitLoginMember, handleLoginPin);
 router.post("/login", rateLimitLoginMember, handleLoginPin);

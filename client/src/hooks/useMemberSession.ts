@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { getCsrfToken } from "@/lib/csrf";
+import { supabase } from "@/lib/supabase";
 
 export interface MemberPermissions {
   crm: boolean;
@@ -84,6 +85,8 @@ export function useMemberSession() {
       console.error("Logout failed, clearing local session anyway:", err);
     } finally {
       localStorage.removeItem(SESSION_KEY);
+      // Révoquer également la session Supabase Auth côté client (silencieux si absent).
+      await supabase.auth.signOut().catch(() => {});
       setLocation("/team-members-login");
     }
   };

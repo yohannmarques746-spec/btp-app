@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getCsrfToken } from "@/lib/csrf";
 import { OWNERS_LIST } from "@/lib/ownerUtils";
+import { supabase } from "@/lib/supabase";
 
 const OWNER_ID = OWNERS_LIST[0];
 const PIN_LENGTH = 6;
@@ -93,6 +94,7 @@ export default function TeamMemberLogin() {
         token?: string;
         memberId?: string;
         name?: string;
+        supabaseAccessToken?: string | null;
         error?: string;
         message?: string;
         retryAfter?: number;
@@ -142,6 +144,16 @@ export default function TeamMemberLogin() {
       }
 
       localStorage.setItem("member-session-token", data.token);
+
+      // Établir une session Supabase Auth pour que auth.uid() soit valorisé dans RLS.
+      // Le JWT est signé côté serveur avec SUPABASE_JWT_SECRET.
+      if (data.supabaseAccessToken) {
+        await supabase.auth.setSession({
+          access_token: data.supabaseAccessToken,
+          refresh_token: "",
+        });
+      }
+
       setLocation("/team-members-dash");
     } catch {
       toast({ title: "Erreur réseau. Réessayez.", variant: "destructive" });

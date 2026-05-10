@@ -3,10 +3,26 @@ import { unwrapRpc } from "../auth/serverlessHelpers.js";
 
 const PIN_RE = /^\d{6}$/;
 
+export interface LoginPinOk {
+  status: 200;
+  body: { token: string; memberId: string; name: string };
+  /** UUID Supabase Auth de l'employé — null si compte "PIN-only" non lié à un auth_user. */
+  authUserId: string | null;
+  /** Email de l'employé — null si non renseigné dans team_members. */
+  memberEmail: string | null;
+}
+
+export interface LoginPinFail {
+  status: 400 | 401 | 403 | 404 | 410 | 429 | 500;
+  body: { error: string; message?: string };
+}
+
+export type LoginPinResult = LoginPinOk | LoginPinFail;
+
 export async function loginPin(
   pin: string,
   ownerId: string,
-): Promise<{ status: number; body: object }> {
+): Promise<LoginPinResult> {
   if (!PIN_RE.test(pin)) {
     return {
       status: 401,
@@ -34,10 +50,12 @@ export async function loginPin(
     return {
       status: 200,
       body: {
-        token: row.session_token,
-        memberId: row.member_id,
-        name: row.member_name,
+        token: row.session_token as string,
+        memberId: row.member_id as string,
+        name: row.member_name as string,
       },
+      authUserId: (row.auth_user_id as string | null) ?? null,
+      memberEmail: (row.member_email as string | null) ?? null,
     };
   } catch (err) {
     console.error("[shared/team/auth.loginPin]", err);
