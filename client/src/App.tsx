@@ -22,7 +22,7 @@ import CRMPipelinePage from "@/pages/CRMPipelinePage";
 import TeamPage from "@/pages/TeamPage";
 import TeamPermissionsPage from "@/pages/TeamPermissionsPage";
 import TeamMemberLogin from "@/pages/TeamMemberLogin";
-import TeamMemberDashboard from "@/pages/TeamMemberDashboard";
+import EmployeeShell from "@/pages/employee/EmployeeShell";
 import PaymentsPage from "@/pages/PaymentsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
@@ -109,15 +109,16 @@ function Router() {
       // Routes membres équipe — pas de guard Supabase
       case "/team-members-login":
         return <TeamMemberLogin />;
-      case "/team-members-dash":
-        return <TeamMemberDashboard />;
       default:
+        if (location.startsWith("/team-members-dash")) {
+          return <EmployeeShell />;
+        }
         return <NotFound />;
     }
   };
 
   // Pages without sidebar (Home, Auth, Login, Invite) get full page animation
-  const fullPageRoutes = new Set(["/", "/auth", "/login", "/team-members-login", "/team-members-dash"]);
+  const fullPageRoutes = new Set(["/", "/auth", "/login", "/team-members-login"]);
   const isFullPage = fullPageRoutes.has(location) || location.startsWith("/invite/");
 
   if (isFullPage) {

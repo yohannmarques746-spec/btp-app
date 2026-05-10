@@ -4,7 +4,6 @@ import { getCsrfToken } from "@/lib/csrf";
 import {
   Building2,
   CalendarDays,
-  LogOut,
   Loader2,
   Send,
   MapPin,
@@ -18,9 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useMemberSession, type AssignedChantier } from "@/hooks/useMemberSession";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import type { MemberSession, MemberPermissions, AssignedChantier } from "@/hooks/useMemberSession";
 
 interface ChantierNote {
   id: string;
@@ -28,8 +25,6 @@ interface ChantierNote {
   content: string;
   created_at: string;
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isTodayChantier(c: AssignedChantier): boolean {
   if (!c.date_debut || !c.date_fin_prevue) return false;
@@ -39,10 +34,10 @@ function isTodayChantier(c: AssignedChantier): boolean {
 
 function statutColor(statut: string) {
   switch (statut) {
-    case "en cours":  return "bg-blue-500/20 text-blue-300";
-    case "terminé":   return "bg-green-500/20 text-green-300";
-    case "planifié":  return "bg-yellow-500/20 text-yellow-300";
-    default:          return "bg-white/10 text-white/60";
+    case "en cours": return "bg-blue-500/20 text-blue-300";
+    case "terminé":  return "bg-green-500/20 text-green-300";
+    case "planifié": return "bg-yellow-500/20 text-yellow-300";
+    default:         return "bg-white/10 text-white/60";
   }
 }
 
@@ -56,8 +51,6 @@ function formatDateTime(d: string) {
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
 }
-
-// ─── Formulaire note + liste notes ───────────────────────────────────────────
 
 function ChantierNoteSection({
   chantierId,
@@ -98,18 +91,17 @@ function ChantierNoteSection({
     }
   };
 
-  const chanierNotes = notes.filter((n) => n.chantier_id === chantierId);
+  const chantierNotes = notes.filter((n) => n.chantier_id === chantierId);
 
   return (
     <div className="space-y-3 mt-3 border-t border-white/10 pt-3">
-      {/* Historique notes */}
-      {chanierNotes.length > 0 && (
+      {chantierNotes.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-white/50 flex items-center gap-1">
             <StickyNote className="w-3 h-3" />
             Notes de suivi
           </p>
-          {chanierNotes.map((note) => (
+          {chantierNotes.map((note) => (
             <div key={note.id} className="bg-white/5 rounded-lg p-2.5 space-y-1">
               <p className="text-sm text-white/90">{note.content}</p>
               <p className="text-xs text-white/40">{formatDateTime(note.created_at)}</p>
@@ -117,8 +109,6 @@ function ChantierNoteSection({
           ))}
         </div>
       )}
-
-      {/* Formulaire ajout */}
       <div className="space-y-2">
         <Textarea
           value={content}
@@ -140,8 +130,6 @@ function ChantierNoteSection({
     </div>
   );
 }
-
-// ─── Carte chantier ───────────────────────────────────────────────────────────
 
 function ChantierCard({
   chantier,
@@ -177,21 +165,21 @@ function ChantierCard({
           )}
         </div>
       </div>
-
       <div className="flex gap-4 text-xs text-white/60">
         <span><CalendarDays className="w-3 h-3 inline mr-1" />Début : {formatDate(chantier.date_debut)}</span>
         <span><Clock className="w-3 h-3 inline mr-1" />Fin : {formatDate(chantier.date_fin_prevue)}</span>
       </div>
-
       <ChantierNoteSection chantierId={chantier.id} notes={notes} onNoteAdded={onNoteAdded} />
     </motion.div>
   );
 }
 
-// ─── Page principale ──────────────────────────────────────────────────────────
+interface EmployeeOverviewProps {
+  member: MemberSession;
+  permissions: MemberPermissions;
+}
 
-export default function TeamMemberDashboard() {
-  const { member, permissions, isLoading, logout } = useMemberSession();
+export default function EmployeeOverview({ member, permissions }: EmployeeOverviewProps) {
   const [notes, setNotes] = useState<ChantierNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
 
@@ -210,52 +198,24 @@ export default function TeamMemberDashboard() {
   }, []);
 
   useEffect(() => {
-    if (member && permissions?.chantiers) fetchNotes();
-  }, [member, permissions?.chantiers, fetchNotes]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-white animate-spin" />
-      </div>
-    );
-  }
-
-  if (!member) return null;
+    if (permissions.chantiers) fetchNotes();
+  }, [permissions.chantiers, fetchNotes]);
 
   const todayChantiers = member.assignedChantiers.filter(isTodayChantier);
   const otherChantiers = member.assignedChantiers.filter((c) => !isTodayChantier(c));
-
-  const hasAnyPermission = permissions?.dashboard || permissions?.chantiers || permissions?.planning;
+  const hasAnyPermission = permissions.dashboard || permissions.chantiers || permissions.planning;
 
   return (
-    <div className="min-h-screen p-4 md:p-6 space-y-6 max-w-2xl mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
-      >
-        <div>
-          <h1 className="text-xl font-bold text-white">Bonjour, {member.name}</h1>
-          <p className="text-white/60 text-sm">
-            {new Date().toLocaleDateString("fr-FR", {
-              weekday: "long", day: "numeric", month: "long",
-            })}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={logout}
-          className="text-white/60 hover:text-white hover:bg-white/10"
-        >
-          <LogOut className="w-4 h-4 mr-1" />
-          Déconnexion
-        </Button>
+    <div className="space-y-6 max-w-2xl">
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="text-xl font-bold text-white">Bonjour, {member.name}</h1>
+        <p className="text-white/60 text-sm">
+          {new Date().toLocaleDateString("fr-FR", {
+            weekday: "long", day: "numeric", month: "long",
+          })}
+        </p>
       </motion.div>
 
-      {/* Aucune permission activée */}
       {!hasAnyPermission && (
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
@@ -270,8 +230,7 @@ export default function TeamMemberDashboard() {
         </Card>
       )}
 
-      {/* Résumé rapide — permission dashboard */}
-      {permissions?.dashboard && (
+      {permissions.dashboard && (
         <div className="grid grid-cols-2 gap-3">
           <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
             <CardContent className="p-4 flex items-center gap-3">
@@ -298,8 +257,7 @@ export default function TeamMemberDashboard() {
         </div>
       )}
 
-      {/* Tâches du jour — permission chantiers */}
-      {permissions?.chantiers && todayChantiers.length > 0 && (
+      {permissions.chantiers && todayChantiers.length > 0 && (
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -322,8 +280,7 @@ export default function TeamMemberDashboard() {
         </Card>
       )}
 
-      {/* Planning personnel — permission planning */}
-      {permissions?.planning && (
+      {permissions.planning && (
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -339,9 +296,8 @@ export default function TeamMemberDashboard() {
               </div>
             ) : (
               <>
-                {/* Dans planning, on montre les chantiers en lecture + notes si permission chantiers aussi */}
-                {otherChantiers.map((c) => (
-                  permissions?.chantiers ? (
+                {otherChantiers.map((c) =>
+                  permissions.chantiers ? (
                     <ChantierCard
                       key={c.id}
                       chantier={c}
@@ -371,7 +327,7 @@ export default function TeamMemberDashboard() {
                       </div>
                     </div>
                   )
-                ))}
+                )}
                 {todayChantiers.length > 0 && otherChantiers.length === 0 && (
                   <p className="text-sm text-white/50 text-center py-4">
                     Tous vos chantiers sont en cours aujourd'hui.
@@ -383,8 +339,7 @@ export default function TeamMemberDashboard() {
         </Card>
       )}
 
-      {/* Chantiers assignés seul (permission chantiers sans planning) */}
-      {permissions?.chantiers && !permissions?.planning && otherChantiers.length > 0 && (
+      {permissions.chantiers && !permissions.planning && otherChantiers.length > 0 && (
         <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
