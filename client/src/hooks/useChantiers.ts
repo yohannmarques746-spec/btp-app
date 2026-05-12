@@ -196,6 +196,14 @@ export function useChantiers() {
 
   useEffect(() => {
     refresh();
+
+    // Re-fetch when auth session becomes available (handles page reload & fresh login)
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+        refresh();
+      }
+    });
+
     const channel = supabase
       .channel("chantiers-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "chantiers" }, () => {
@@ -204,6 +212,7 @@ export function useChantiers() {
       .subscribe();
 
     return () => {
+      authSubscription.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [refresh]);

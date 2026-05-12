@@ -113,10 +113,18 @@ export function useClients() {
       throw subscriptionError;
     }
 
+    // Re-fetch when auth session becomes available (handles page reload & fresh login)
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+        refresh();
+      }
+    });
+
     return () => {
       // #region agent log
       fetch("http://127.0.0.1:7471/ingest/9f4619ca-3c4c-4985-8121-3b0a2609e4da", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5953e6" }, body: JSON.stringify({ sessionId: "5953e6", runId, hypothesisId: "H1", location: "client/src/hooks/useClients.ts:117", message: "cleanup removeChannel called", data: { topic: (subscribedChannel as { topic?: string }).topic ?? "unknown", state: (subscribedChannel as { state?: string }).state ?? "unknown", channelsAtCleanup: (supabase.getChannels?.() ?? []).map((chan) => ({ topic: (chan as { topic?: string }).topic ?? "unknown", state: (chan as { state?: string }).state ?? "unknown" })) }, timestamp: Date.now() }) }).catch(() => {});
       // #endregion
+      authSubscription.unsubscribe();
       supabase.removeChannel(subscribedChannel);
     };
   }, [refresh]);

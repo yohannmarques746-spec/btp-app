@@ -51,6 +51,25 @@ export function useMemberSession() {
       setLocation("/team-members-login");
     };
 
+    // Rechargement silencieux des données de session (chantiers assignés, permissions…)
+    const refresh = async () => {
+      const currentToken = localStorage.getItem(SESSION_KEY);
+      if (!currentToken) { clearAndRedirect(); return; }
+      try {
+        const res = await fetch("/api/team/session", {
+          headers: { Authorization: `Bearer ${currentToken}` },
+        });
+        if (res.status === 401) { clearAndRedirect(); return; }
+        if (res.ok) {
+          const data = await res.json() as MemberSession;
+          if (data) setMember(data);
+        }
+      } catch {
+        // Erreur réseau silencieuse — l'employé garde les données en cache
+      }
+    };
+
+    // Chargement initial (avec indicateur de chargement)
     fetch("/api/team/session", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -66,7 +85,26 @@ export function useMemberSession() {
       })
       .catch(() => clearAndRedirect())
       .finally(() => setIsLoading(false));
-  }, []); // vérification au mount uniquement
+
+    // Synchronisation temps réel : re-fetch session quand les chantiers ou membres changent
+    const realtimeChannel = supabase
+      .channel("member-session-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "chantiers" }, () => {
+        void refresh();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "team_members" }, () => {
+        void refresh();
+      })
+      .subscribe();
+
+    // Polling toutes les 30s en fallback (utile si le WebSocket Supabase n'est pas disponible)
+    const pollInterval = setInterval(() => void refresh(), 30_000);
+
+    return () => {
+      supabase.removeChannel(realtimeChannel);
+      clearInterval(pollInterval);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = async () => {
     const token = localStorage.getItem(SESSION_KEY);

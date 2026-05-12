@@ -235,4 +235,45 @@ router.delete("/members/:id", async (req: Request, res: Response): Promise<void>
   res.status(result.status).json(result.body);
 });
 
+// ─── /api/team/data/* — Données métier pour les employés ─────────────────────
+// Ces routes utilisent les fonctions SECURITY DEFINER Supabase qui valident
+// le session token et la permission en SQL, sans JWT Supabase côté client.
+
+router.get("/data/chantiers", async (req: Request, res: Response): Promise<void> => {
+  const token = extractBearer(req);
+  if (!token) { res.status(401).json({ error: "Token manquant" }); return; }
+  const { data, error } = await supabaseServer.rpc("get_team_chantiers", { p_token: token });
+  if (error) { res.status(500).json({ error: "Erreur serveur", detail: error.message }); return; }
+  if (!data || (data as unknown[]).length === 0) {
+    // Peut signifier token invalide ou permission absente — on retourne tableau vide
+    res.json([]);
+    return;
+  }
+  res.json(data);
+});
+
+router.get("/data/clients", async (req: Request, res: Response): Promise<void> => {
+  const token = extractBearer(req);
+  if (!token) { res.status(401).json({ error: "Token manquant" }); return; }
+  const { data, error } = await supabaseServer.rpc("get_team_clients", { p_token: token });
+  if (error) { res.status(500).json({ error: "Erreur serveur", detail: error.message }); return; }
+  res.json(data ?? []);
+});
+
+router.get("/data/planning", async (req: Request, res: Response): Promise<void> => {
+  const token = extractBearer(req);
+  if (!token) { res.status(401).json({ error: "Token manquant" }); return; }
+  const { data, error } = await supabaseServer.rpc("get_team_rendez_vous", { p_token: token });
+  if (error) { res.status(500).json({ error: "Erreur serveur", detail: error.message }); return; }
+  res.json(data ?? []);
+});
+
+router.get("/data/devis", async (req: Request, res: Response): Promise<void> => {
+  const token = extractBearer(req);
+  if (!token) { res.status(401).json({ error: "Token manquant" }); return; }
+  const { data, error } = await supabaseServer.rpc("get_team_devis", { p_token: token });
+  if (error) { res.status(500).json({ error: "Erreur serveur", detail: error.message }); return; }
+  res.json(data ?? []);
+});
+
 export const teamAuthRouter = router;

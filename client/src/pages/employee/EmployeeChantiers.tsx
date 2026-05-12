@@ -7,7 +7,6 @@ import {
   Loader2,
   Send,
   MapPin,
-  Clock,
   StickyNote,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import type { MemberSession, AssignedChantier } from "@/hooks/useMemberSession";
+import type { MemberSession } from "@/hooks/useMemberSession";
 
 interface ChantierNote {
   id: string;
@@ -24,12 +23,37 @@ interface ChantierNote {
   created_at: string;
 }
 
-function statutColor(statut: string) {
+interface TeamChantier {
+  id: string;
+  nom: string;
+  client_id: string | null;
+  client_nom: string | null;
+  client_prenom: string | null;
+  adresse: string | null;
+  date_debut: string | null;
+  date_fin_prevue: string | null;
+  duree: string | null;
+  statut: string | null;
+  archived: boolean | null;
+  created_at: string;
+}
+
+function statutColor(statut: string | null) {
   switch (statut) {
+    case "en_cours":
     case "en cours": return "bg-blue-500/20 text-blue-300";
     case "terminé":  return "bg-green-500/20 text-green-300";
     case "planifié": return "bg-yellow-500/20 text-yellow-300";
     default:         return "bg-white/10 text-white/60";
+  }
+}
+
+function statutLabel(statut: string | null) {
+  switch (statut) {
+    case "en_cours": return "en cours";
+    case "terminé":  return "terminé";
+    case "planifié": return "planifié";
+    default:         return statut ?? "—";
   }
 }
 
@@ -128,16 +152,11 @@ function ChantierCard({
   notes,
   onNoteAdded,
 }: {
-  chantier: AssignedChantier;
+  chantier: TeamChantier;
   notes: ChantierNote[];
   onNoteAdded: () => void;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const isToday =
-    chantier.date_debut != null &&
-    chantier.date_fin_prevue != null &&
-    chantier.date_debut <= today &&
-    today <= chantier.date_fin_prevue;
+  const clientName = [chantier.client_nom, chantier.client_prenom].filter(Boolean).join(" ").trim() || null;
 
   return (
     <motion.div
@@ -148,6 +167,9 @@ function ChantierCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-semibold text-white">{chantier.nom}</p>
+          {clientName && (
+            <p className="text-xs text-white/50 mt-0.5">{clientName}</p>
+          )}
           {chantier.adresse && (
             <div className="flex items-center gap-1 text-xs text-white/50 mt-0.5">
               <MapPin className="w-3 h-3" />
@@ -155,16 +177,18 @@ function ChantierCard({
             </div>
           )}
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <Badge className={statutColor(chantier.statut)}>{chantier.statut}</Badge>
-          {isToday && (
-            <Badge className="bg-orange-500/20 text-orange-300 text-xs">Aujourd'hui</Badge>
-          )}
-        </div>
+        <Badge className={statutColor(chantier.statut)}>
+          {statutLabel(chantier.statut)}
+        </Badge>
       </div>
       <div className="flex gap-4 text-xs text-white/60">
-        <span><CalendarDays className="w-3 h-3 inline mr-1" />Début : {formatDate(chantier.date_debut)}</span>
-        <span><Clock className="w-3 h-3 inline mr-1" />Fin : {formatDate(chantier.date_fin_prevue)}</span>
+        <span>
+          <CalendarDays className="w-3 h-3 inline mr-1" />
+          Début : {formatDate(chantier.date_debut)}
+        </span>
+        {chantier.date_fin_prevue && (
+          <span>Fin prévue : {formatDate(chantier.date_fin_prevue)}</span>
+        )}
       </div>
       <ChantierNoteSection chantierId={chantier.id} notes={notes} onNoteAdded={onNoteAdded} />
     </motion.div>
@@ -175,9 +199,28 @@ interface EmployeeChantiersProps {
   member: MemberSession;
 }
 
-export default function EmployeeChantiers({ member }: EmployeeChantiersProps) {
+export default function EmployeeChantiers({ member: _member }: EmployeeChantiersProps) {
+  const [chantiers, setChantiers] = useState<TeamChantier[]>([]);
   const [notes, setNotes] = useState<ChantierNote[]>([]);
+  const [loading, setLoading] = useState(true);
   const [notesLoading, setNotesLoading] = useState(false);
+
+  const fetchChantiers = useCallback(async () => {
+    const token = localStorage.getItem("member-session-token") ?? "";
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/team/data/chantiers", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json() as TeamChantier[];
+        setChantiers(data.filter((c) => !c.archived));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const fetchNotes = useCallback(async () => {
     const token = localStorage.getItem("member-session-token") ?? "";
@@ -194,32 +237,39 @@ export default function EmployeeChantiers({ member }: EmployeeChantiersProps) {
   }, []);
 
   useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
+    void fetchChantiers();
+    void fetchNotes();
+  }, [fetchChantiers, fetchNotes]);
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-xl font-bold text-white">Mes chantiers</h1>
-        <p className="text-white/60 text-sm">{member.assignedChantiers.length} chantier{member.assignedChantiers.length !== 1 ? "s" : ""} assigné{member.assignedChantiers.length !== 1 ? "s" : ""}</p>
+        <h1 className="text-xl font-bold text-white">Chantiers</h1>
+        <p className="text-white/60 text-sm">
+          {loading ? "Chargement…" : `${chantiers.length} chantier${chantiers.length !== 1 ? "s" : ""}`}
+        </p>
       </div>
 
       <Card className="bg-black/20 backdrop-blur-xl border border-white/10 text-white">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <Building2 className="w-4 h-4 text-white/70" />
-            Tous mes chantiers
-            {notesLoading && <Loader2 className="w-3 h-3 animate-spin text-white/40 ml-auto" />}
+            Tous les chantiers
+            {(loading || notesLoading) && <Loader2 className="w-3 h-3 animate-spin text-white/40 ml-auto" />}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {member.assignedChantiers.length === 0 ? (
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+            </div>
+          ) : chantiers.length === 0 ? (
             <div className="text-center py-8 text-white/50">
               <Building2 className="w-10 h-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">Aucun chantier assigné pour l'instant</p>
+              <p className="text-sm">Aucun chantier disponible</p>
             </div>
           ) : (
-            member.assignedChantiers.map((c) => (
+            chantiers.map((c) => (
               <ChantierCard
                 key={c.id}
                 chantier={c}

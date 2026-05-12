@@ -31,6 +31,10 @@
 //   PATCH  /api/team/members/:id/pin
 //   PATCH  /api/team/members/:id/permissions
 //   PATCH  /api/team/members/:id/status
+//   GET    /api/team/data/chantiers
+//   GET    /api/team/data/clients
+//   GET    /api/team/data/planning
+//   GET    /api/team/data/devis
 // ============================================================================
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -48,6 +52,7 @@ import {
   logoutMember,
   getMemberSession,
 } from "../shared/team/auth.js";
+import { getSupabaseServer } from "../shared/auth/supabaseFactory.js";
 import {
   listMembers,
   getMember,
@@ -366,6 +371,39 @@ export default async function handler(
     }
 
     return notFound(res);
+  }
+
+  // ─── /api/team/data/* — Données métier pour les employés ──────────────────
+  // Ces routes appellent des fonctions SQL SECURITY DEFINER qui valident le
+  // session token et la permission en interne, sans JWT Supabase côté client.
+  if (a === "data" && segments.length === 2) {
+    if (method !== "GET") return methodNotAllowed(res);
+
+    const token = extractBearer(req);
+    if (!token) {
+      res.status(401).json({ error: "Token manquant" });
+      return;
+    }
+
+    const supabase = getSupabaseServer();
+    const rpcMap: Record<string, string> = {
+      chantiers: "get_team_chantiers",
+      clients:   "get_team_clients",
+      planning:  "get_team_rendez_vous",
+      devis:     "get_team_devis",
+    };
+
+    const rpcName = rpcMap[b];
+    if (!rpcName) return notFound(res);
+
+    const { data, error } = await supabase.rpc(rpcName, { p_token: token });
+    if (error) {
+      console.error(`[team-router] ${rpcName}`, error);
+      res.status(500).json({ error: "Erreur serveur", detail: error.message });
+      return;
+    }
+    res.status(200).json(data ?? []);
+    return;
   }
 
   return notFound(res);
