@@ -32,7 +32,9 @@ router.post(
 
     const body = (req.body ?? {}) as { pin?: string };
 
-    const ownerIds = parseOwnerIds(process.env.VITE_OWNER_IDS);
+    const ownerIds = parseOwnerIds(
+      process.env.VITE_OWNER_IDS ?? process.env.VITE_OWNER_ID,
+    );
 
     const supabase =
       token !== null && token.length > 0

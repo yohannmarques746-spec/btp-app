@@ -34,6 +34,7 @@ const buildCspPolicy = (env: NodeEnv): string => {
     env === "development"
       ? "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'"
       : "script-src 'self' 'wasm-unsafe-eval'";
+  const connectSrc = `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`;
 
   return [
     "default-src 'self'",
@@ -41,13 +42,14 @@ const buildCspPolicy = (env: NodeEnv): string => {
     // client/index.html charge Inter / Fira Code depuis Google Fonts
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https:",
-    `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
+    connectSrc,
     "font-src 'self' data: https://fonts.gstatic.com",
     "frame-ancestors 'none'",
   ].join("; ");
 };
 
 const CSP_POLICY = buildCspPolicy(NODE_ENV);
+log(`[csp] ${CSP_POLICY}`, "server");
 
 app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader("Content-Security-Policy", CSP_POLICY);

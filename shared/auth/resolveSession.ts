@@ -71,7 +71,6 @@ export async function resolveSession(
     .eq("owner_id", ownerId)
     .eq("co_owner_id", user.id)
     .maybeSingle();
-
   if (coOwner) {
     return { status: 200, body: { type: "owner" } };
   }
@@ -121,7 +120,6 @@ export async function resolveSession(
     const email = user.email ?? "";
     const name =
       (user.user_metadata?.full_name as string | undefined) ?? email;
-
     const { data: newMemberId, error: rpcError } = await supabase.rpc(
       "register_pending_team_member",
       {

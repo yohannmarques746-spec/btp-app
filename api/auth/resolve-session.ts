@@ -72,7 +72,9 @@ export default async function handler(
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const ownerIds = parseOwnerIds(process.env.VITE_OWNER_IDS);
+  const ownerIds = parseOwnerIds(
+    process.env.VITE_OWNER_IDS ?? process.env.VITE_OWNER_ID,
+  );
 
   const { status, body: responseBody } = await resolveSession({
     supabase,
