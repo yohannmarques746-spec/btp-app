@@ -13,8 +13,10 @@ L'application affiche : `Configuration manquante (VITE_OWNER_IDS)`
 | Champ | Valeur |
 |-------|--------|
 | **Name** | `VITE_OWNER_IDS` |
-| **Value** | `4709322a-1d4b-4ac1-adf1-34329f31ce58,7eef8d67-dc97-4957-8863-7be105c1d272` |
+| **Value** | `7eef8d67-dc97-4957-8863-7be105c1d272` |
 | **Environment** | ✅ Production, ✅ Preview, ✅ Development |
+
+> Note : `7eef8d67-...` = calde81@hotmail.com (patron principal). Le compte dev yohannmarques746@gmail.com (`d878bc5d-...`) est ajouté comme co-owner via la table `app_co_owners`, pas via cette variable.
 
 **Puis cliquez : "Save"**
 
@@ -36,8 +38,8 @@ L'application affiche : `Configuration manquante (VITE_OWNER_IDS)`
 ```bash
 cd /Users/yohannmarques/Desktop/PLANCHAIS-app-main
 vercel env add VITE_OWNER_IDS
-# Puis tapez: 4709322a-1d4b-4ac1-adf1-34329f31ce58,7eef8d67-dc97-4957-8863-7be105c1d272
-# Sélectionnez: Production
+# Puis tapez: 7eef8d67-dc97-4957-8863-7be105c1d272
+# Sélectionnez: Production, Preview, Development
 vercel deploy --prod
 ```
 

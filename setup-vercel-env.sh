@@ -18,7 +18,8 @@ fi
 echo ""
 echo "📋 Configuration:"
 echo "  Name: VITE_OWNER_IDS"
-echo "  Value: 4709322a-1d4b-4ac1-adf1-34329f31ce58,7eef8d67-dc97-4957-8863-7be105c1d272"
+echo "  Value: 7eef8d67-dc97-4957-8863-7be105c1d272"
+echo "  (calde81 = patron principal. Yohann est co-owner via la table app_co_owners.)"
 echo ""
 
 # Aller au répertoire du projet
