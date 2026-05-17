@@ -33,6 +33,7 @@ import { FacturePreview } from "@/components/facture/FacturePreview";
 
 import { calculateTVAParTaux, calculateLigneTotalHT } from "@/utils/devisCalculs";
 import { formatCHF, sanitizeFileNamePart } from "@/utils/chf";
+import { applyAutoRetardStatut, computeFactureDashboardStats } from "@/utils/factureStats";
 import type { TauxTVA, LignePrestation } from "@/types/devis";
 import { DEFAULT_UNITE_PRESTATION } from "@/constants/unitesPrestation";
 import { useCataloguePrestations } from "@/hooks/useCataloguePrestations";
@@ -179,24 +180,15 @@ export default function PaymentsPage() {
     window.history.replaceState({}, "", next ? `/dashboard/payments?${next}` : "/dashboard/payments");
   }, []);
 
-  // Auto-statut en retard
-  const facturesWithAutoStatus = useMemo(() => {
-    const today = todayISO();
-    return factures.map((f) => {
-      if (f.statut === "payee") return f;
-      if (f.dateEcheance && f.dateEcheance < today) return { ...f, statut: "en_retard" as FactureStatus };
-      return f;
-    });
-  }, [factures]);
+  const facturesWithAutoStatus = useMemo(
+    () => applyAutoRetardStatut(factures),
+    [factures]
+  );
 
-  // Dashboard stats
-  const stats = useMemo(() => {
-    const total = facturesWithAutoStatus.reduce((s, f) => s + f.montantTTC, 0);
-    const payee = facturesWithAutoStatus.filter((f) => f.statut === "payee").reduce((s, f) => s + f.montantTTC, 0);
-    const retard = facturesWithAutoStatus.filter((f) => f.statut === "en_retard").reduce((s, f) => s + f.montantTTC, 0);
-    const enAttente = facturesWithAutoStatus.filter((f) => f.statut === "non_payee").reduce((s, f) => s + f.montantTTC, 0);
-    return { total, payee, retard, enAttente };
-  }, [facturesWithAutoStatus]);
+  const stats = useMemo(
+    () => computeFactureDashboardStats(facturesWithAutoStatus),
+    [facturesWithAutoStatus]
+  );
 
   // Calculs en temps réel depuis les lignes
   const lignesCalculees = useMemo<LignePrestation[]>(
@@ -450,8 +442,15 @@ export default function PaymentsPage() {
               {[
                 { label: "Total facturé", value: stats.total, color: "text-blue-400", icon: <FileText className="h-4 w-4" /> },
                 { label: "Payé", value: stats.payee, color: "text-green-400", icon: <CheckCircle2 className="h-4 w-4" /> },
-                { label: "En attente", value: stats.enAttente, color: "text-yellow-300", icon: <Clock className="h-4 w-4" /> },
-                { label: "En retard", value: stats.retard, color: "text-red-400", icon: <XCircle className="h-4 w-4" /> },
+                {
+                  label: "Total impayé",
+                  value: stats.impayeTotal,
+                  color: "text-yellow-300",
+                  icon: <Clock className="h-4 w-4" />,
+                  detail:
+                    stats.enRetard > 0 ? `dont ${formatCHF(stats.enRetard)} en retard` : undefined,
+                },
+                { label: "En retard", value: stats.enRetard, color: "text-red-400", icon: <XCircle className="h-4 w-4" /> },
               ].map((card) => (
                 <Card key={card.label} className="bg-black/20 border-white/10 text-white">
                   <CardContent className="p-4">
@@ -459,6 +458,9 @@ export default function PaymentsPage() {
                       {card.icon} {card.label}
                     </div>
                     <p className="text-xl font-bold">{formatCHF(card.value)}</p>
+                    {"detail" in card && card.detail ? (
+                      <p className="text-xs text-white/50 mt-1">{card.detail}</p>
+                    ) : null}
                   </CardContent>
                 </Card>
               ))}

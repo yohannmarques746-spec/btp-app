@@ -19,6 +19,7 @@ import {
 import { useLocation } from 'wouter'
 import { useChantiers } from '@/context/ChantiersContext'
 import { useFactures } from '@/hooks/useFactures'
+import { computeFactureDashboardStats } from '@/utils/factureStats'
 import { useDevis } from '@/hooks/useDevis'
 import { formatCHF } from '@/utils/chf'
 import { useBranding } from '@/hooks/useBranding'
@@ -175,10 +176,10 @@ function OverviewTab() {
   // Données financières réelles depuis les factures
   const totalFacture = useMemo(() => factures.reduce((s, f) => s + f.montantTTC, 0), [factures]);
   const totalPaye = useMemo(() => factures.filter((f) => f.statut === 'payee').reduce((s, f) => s + f.montantTTC, 0), [factures]);
-  const totalImpaye = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return factures.filter((f) => f.statut !== 'payee' && f.dateEcheance && f.dateEcheance < today).reduce((s, f) => s + f.montantTTC, 0);
-  }, [factures]);
+  const factureStats = useMemo(
+    () => computeFactureDashboardStats(factures),
+    [factures]
+  );
 
   // Devis en attente de réponse (envoyés depuis + de 7 jours)
   const devisEnvoyes = useMemo(() => devisList.filter((d) => d.statut === 'envoye'), [devisList]);
@@ -236,17 +237,17 @@ function OverviewTab() {
         </Card>
 
         <Card
-          className={`min-w-0 bg-black/20 backdrop-blur-xl border text-white cursor-pointer hover:bg-white/10 transition-colors p-3 md:p-5 ${totalImpaye > 0 ? 'border-red-500/30' : 'border-white/10'}`}
+          className={`min-w-0 bg-black/20 backdrop-blur-xl border text-white cursor-pointer hover:bg-white/10 transition-colors p-3 md:p-5 ${factureStats.impayeTotal > 0 ? 'border-red-500/30' : 'border-white/10'}`}
           onClick={() => setLocation('/dashboard/payments')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Impayés</CardTitle>
-            <TrendingUp className={`h-4 w-4 ${totalImpaye > 0 ? 'text-red-400' : 'text-white/70'}`} />
+            <TrendingUp className={`h-4 w-4 ${factureStats.impayeTotal > 0 ? 'text-red-400' : 'text-white/70'}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-base font-bold md:text-xl ${totalImpaye > 0 ? 'text-red-400' : ''}`}>{formatCHF(totalImpaye)}</div>
+            <div className={`text-base font-bold md:text-xl ${factureStats.impayeTotal > 0 ? 'text-red-400' : ''}`}>{formatCHF(factureStats.impayeTotal)}</div>
             <p className="text-xs text-gray-500 md:text-sm">
-              {factures.filter((f) => f.statut === 'en_retard' || (f.statut !== 'payee' && f.dateEcheance && f.dateEcheance < new Date().toISOString().split('T')[0])).length} facture(s)
+              {factureStats.countImpaye} facture(s)
             </p>
           </CardContent>
         </Card>

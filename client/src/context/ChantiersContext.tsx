@@ -39,6 +39,7 @@ interface ChantiersContextType {
   loading: boolean;
   addClient: (client: Client) => Promise<{ error: Error | null }>;
   updateClient: (id: string, updates: Partial<Client>) => Promise<{ error: Error | null }>;
+  deleteClient: (id: string) => Promise<{ error: Error | null }>;
   addChantier: (chantier: Chantier) => Promise<{ error: Error | null }>;
   updateChantier: (id: string, updates: Partial<Chantier>) => Promise<{ error: Error | null }>;
   deleteChantier: (id: string) => Promise<{ error: Error | null }>;
@@ -82,6 +83,11 @@ export function ChantiersProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null };
   };
 
+  const deleteClient = async (id: string) => {
+    const { error } = await clientsHook.deleteClient(id);
+    return { error: error ? new Error(error.message) : null };
+  };
+
   const addChantier = async (chantier: Chantier) => {
     const { error } = await chantiersHook.saveChantier({
       nom: chantier.nom,
@@ -119,6 +125,7 @@ export function ChantiersProvider({ children }: { children: ReactNode }) {
         loading: clientsHook.loading || chantiersHook.loading,
         addClient,
         updateClient,
+        deleteClient,
         addChantier,
         updateChantier,
         deleteChantier,

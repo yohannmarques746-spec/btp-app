@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { User, Plus, Building, Mail, Phone, Image as ImageIcon, Pencil, FileText, Search } from 'lucide-react';
+import { User, Plus, Building, Mail, Phone, Image as ImageIcon, Pencil, FileText, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useChantiers, Client, Chantier } from '@/context/ChantiersContext';
@@ -32,7 +32,7 @@ function formatClientAddressLine(c: Pick<Client, 'adresse' | 'npa' | 'localite'>
 
 export default function ClientsPage() {
   const { toast } = useToast();
-  const { clients, chantiers, addClient, updateClient, updateChantier } = useChantiers();
+  const { clients, chantiers, addClient, updateClient, deleteClient, updateChantier } = useChantiers();
   const { devisList } = useDevis();
   const [location] = useLocation();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -133,6 +133,37 @@ export default function ClientsPage() {
     setSelectedClient(editingClient);
     setIsClientEditDialogOpen(false);
     toast({ title: 'Enregistré avec succès' });
+  };
+
+  const handleDeleteClient = async () => {
+    if (!editingClient) return;
+
+    const linkedChantiers = chantiers.filter((c) => c.clientId === editingClient.id);
+    const chantierWarning =
+      linkedChantiers.length > 0
+        ? `\n\nAttention : ${linkedChantiers.length} chantier(s) lié(s).`
+        : '';
+
+    const confirmed = window.confirm(
+      `Supprimer le client « ${editingClient.name} » ?\n\nLes chantiers et devis conservent l'historique (client_id → NULL).${chantierWarning}`
+    );
+    if (!confirmed) return;
+
+    setIsSavingClient(true);
+    const { error } = await deleteClient(editingClient.id);
+    setIsSavingClient(false);
+
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    if (selectedClient?.id === editingClient.id) {
+      setSelectedClient(null);
+    }
+    setIsClientEditDialogOpen(false);
+    setEditingClient(null);
+    toast({ title: 'Client supprimé' });
   };
 
   const handleOpenEditChantier = (chantier: Chantier) => {
@@ -612,7 +643,17 @@ export default function ClientsPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex justify-end">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleDeleteClient}
+                  disabled={isSavingClient}
+                  className="text-red-300 hover:text-red-200 hover:bg-red-500/10"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Supprimer
+                </Button>
                 <Button onClick={handleSaveClient} disabled={isSavingClient} className="bg-white/20 border border-white/10 hover:bg-white/30">
                   {isSavingClient ? 'Enregistrement...' : 'Enregistrer'}
                 </Button>
