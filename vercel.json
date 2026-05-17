@@ -15,6 +15,6 @@
     }
   ],
   "env": {
-    "VITE_OWNER_IDS": "d878bc5d-ce13-4580-a8da-813b47eeb384"
+    "VITE_OWNER_IDS": "7eef8d67-dc97-4957-8863-7be105c1d272,d878bc5d-ce13-4580-a8da-813b47eeb384"
   }
 }

@@ -34,9 +34,15 @@ import { FacturePreview } from "@/components/facture/FacturePreview";
 import { calculateTVAParTaux, calculateLigneTotalHT } from "@/utils/devisCalculs";
 import { formatCHF, sanitizeFileNamePart } from "@/utils/chf";
 import type { TauxTVA, LignePrestation } from "@/types/devis";
-import { TVA_OPTIONS } from "@/types/devis";
-import { UNITE_OPTION_GROUPS, DEFAULT_UNITE_PRESTATION } from "@/constants/unitesPrestation";
+import { DEFAULT_UNITE_PRESTATION } from "@/constants/unitesPrestation";
 import { useCataloguePrestations } from "@/hooks/useCataloguePrestations";
+import {
+  LignePrestationEditorDialog,
+  LignePrestationRowCompact,
+  ligneDraftFromFields,
+  type LignePrestationDraft,
+  type LignePrestationFocusField,
+} from "@/components/ligne-prestation";
 
 // ─── Types locaux ─────────────────────────────────────────────────────────────
 
@@ -48,6 +54,16 @@ interface LigneForm {
   prixUnitaireHT: number;
   tauxTVA: TauxTVA;
   totalHT: number;
+}
+
+function ligneFormToDraft(ligne: LigneForm): LignePrestationDraft {
+  return ligneDraftFromFields({
+    description: ligne.description,
+    quantite: ligne.quantite,
+    unite: ligne.unite,
+    prixUnitaireHT: ligne.prixUnitaireHT,
+    tauxTVA: ligne.tauxTVA,
+  });
 }
 
 interface FactureFormState {
@@ -147,6 +163,10 @@ export default function PaymentsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [selectedFactureRef, setSelectedFactureRef] = useState<string | null>(null);
+  const [ligneEditor, setLigneEditor] = useState<{
+    index: number;
+    focus: LignePrestationFocusField;
+  } | null>(null);
 
   // Détecter la référence en URL
   useEffect(() => {
@@ -255,7 +275,11 @@ export default function PaymentsPage() {
       tauxTVA: p.tauxTVA,
       totalHT: p.prixUnitaireHT,
     };
-    setForm((prev) => ({ ...prev, lignes: [...prev.lignes, newLigne] }));
+    setForm((prev) => {
+      const lignes = [...prev.lignes, newLigne];
+      return { ...prev, lignes };
+    });
+    setLigneEditor({ index: form.lignes.length, focus: "description" });
   }
 
   function exportCSV() {
@@ -317,6 +341,15 @@ export default function PaymentsPage() {
       });
       return { ...prev, lignes };
     });
+  }
+
+  function handleLigneApply(idx: number, draft: LignePrestationDraft) {
+    updateLigne(idx, "description", draft.description);
+    updateLigne(idx, "quantite", draft.quantite);
+    updateLigne(idx, "unite", draft.unite);
+    updateLigne(idx, "prixUnitaireHT", draft.prixUnitaireHT);
+    updateLigne(idx, "tauxTVA", draft.tauxTVA as TauxTVA);
+    setLigneEditor(null);
   }
 
   function addLigne() {
@@ -605,91 +638,29 @@ export default function PaymentsPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {form.lignes.map((ligne, idx) => (
-                    <div key={ligne.id} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/50">Prestation {idx + 1}</span>
-                        {form.lignes.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-red-400/70 hover:text-red-400"
-                            onClick={() => removeLigne(idx)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                      <Input
-                        placeholder="Description de la prestation"
-                        value={ligne.description}
-                        onChange={(e) => updateLigne(idx, "description", e.target.value)}
-                        className="bg-black/30 border-white/10 text-white text-sm"
-                      />
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <div>
-                          <Label className="text-[10px] text-white/50">Quantité</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={ligne.quantite}
-                            onChange={(e) => updateLigne(idx, "quantite", parseFloat(e.target.value) || 0)}
-                            className="bg-black/30 border-white/10 text-white text-sm h-8"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-white/50">Unité</Label>
-                          <select
-                            value={ligne.unite}
-                            onChange={(e) => updateLigne(idx, "unite", e.target.value)}
-                            className="w-full h-8 rounded-md border bg-black/30 border-white/10 text-white px-2 text-sm"
-                          >
-                            {UNITE_OPTION_GROUPS.map((group) => (
-                              <optgroup key={group.label} label={group.label}>
-                                {group.options.map((o) => (
-                                  <option key={o.code} value={o.code}>{o.code}</option>
-                                ))}
-                              </optgroup>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-white/50">PU HT (CHF)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={ligne.prixUnitaireHT}
-                            onChange={(e) => updateLigne(idx, "prixUnitaireHT", parseFloat(e.target.value) || 0)}
-                            className="bg-black/30 border-white/10 text-white text-sm h-8"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-white/50">TVA %</Label>
-                          <select
-                            value={ligne.tauxTVA}
-                            onChange={(e) => updateLigne(idx, "tauxTVA", parseFloat(e.target.value) as TauxTVA)}
-                            className="w-full h-8 rounded-md border bg-black/30 border-white/10 text-white px-2 text-sm"
-                          >
-                            {TVA_OPTIONS.map((t) => (
-                              <option key={t} value={t}>{t}%</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="text-right text-xs text-white/60">
-                        Total HT :{" "}
-                        <span className="font-semibold text-white">
-                          {formatCHF(
-                            calculateLigneTotalHT({
-                              quantite: ligne.quantite,
-                              prixUnitaireHT: ligne.prixUnitaireHT,
-                            })
-                          )}
-                        </span>
-                      </div>
-                    </div>
+                    <LignePrestationRowCompact
+                      key={ligne.id}
+                      ligneIndex={idx}
+                      draft={ligneFormToDraft(ligne)}
+                      totalHT={ligne.totalHT}
+                      layout="stacked"
+                      canRemove={form.lignes.length > 1}
+                      onRemove={() => removeLigne(idx)}
+                      onOpenEditor={(focus) => setLigneEditor({ index: idx, focus })}
+                    />
                   ))}
+                  {ligneEditor !== null && form.lignes[ligneEditor.index] && (
+                    <LignePrestationEditorDialog
+                      open
+                      onOpenChange={(open) => {
+                        if (!open) setLigneEditor(null);
+                      }}
+                      ligneIndex={ligneEditor.index}
+                      initialDraft={ligneFormToDraft(form.lignes[ligneEditor.index])}
+                      initialFocus={ligneEditor.focus}
+                      onApply={(draft) => handleLigneApply(ligneEditor.index, draft)}
+                    />
+                  )}
 
                   {/* Récap totaux */}
                   <div className="mt-3 rounded-lg border border-white/10 bg-black/30 p-3 space-y-1.5 text-sm">

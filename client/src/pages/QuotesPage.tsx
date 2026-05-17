@@ -13,12 +13,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useDevis } from "@/hooks/useDevis";
 import { EMPTY_PROFIL_ENTREPRISE, useProfilEntreprise } from "@/hooks/useProfilEntreprise";
-import { DEFAULT_UNITE_PRESTATION, UNITE_OPTION_GROUPS, type UnitePrestationCode } from "@/constants/unitesPrestation";
+import { DEFAULT_UNITE_PRESTATION, type UnitePrestationCode } from "@/constants/unitesPrestation";
+import {
+  LignePrestationEditorDialog,
+  LignePrestationRowCompact,
+  ligneDraftFromFields,
+  type LignePrestationDraft,
+  type LignePrestationFocusField,
+} from "@/components/ligne-prestation";
 import { calculateDateExpiration, calculateLigneTotalHT, calculateTotaux, computeDevisStatus, lignesAvecTotalHTCalcule } from "@/utils/devisCalculs";
 import { formatCHF, sanitizeFileNamePart } from "@/utils/chf";
 import { IDE_REGEX, validateDevis } from "@/utils/devisValidation";
 import type { Devis, Emetteur, LignePrestation, StatutDevis, TauxTVA } from "@/types/devis";
-import { DEVIS_STATUS_OPTIONS, TVA_OPTIONS } from "@/types/devis";
+import { DEVIS_STATUS_OPTIONS } from "@/types/devis";
 import { DevisPreview } from "@/components/devis/DevisPreview";
 import { DevisPdfDocument } from "@/components/devis/DevisPdfDocument";
 import { useChantiers } from "@/context/ChantiersContext";
@@ -125,6 +132,10 @@ export default function QuotesPage() {
   const [clientSearch, setClientSearch] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingDevis, setIsSavingDevis] = useState(false);
+  const [ligneEditor, setLigneEditor] = useState<{
+    index: number;
+    focus: LignePrestationFocusField;
+  } | null>(null);
 
   const profileForm = useForm<Emetteur>({ defaultValues: EMPTY_PROFIL_ENTREPRISE });
   const devisForm = useForm<DevisFormValues>({ defaultValues: createDefaults(EMPTY_PROFIL_ENTREPRISE), mode: "onChange" });
@@ -227,6 +238,15 @@ export default function QuotesPage() {
       updatedAt: now,
     };
   }, [editingDevisId, watched, totals, lignesPourTotaux]);
+
+  function handleLigneApply(index: number, draft: LignePrestationDraft) {
+    devisForm.setValue(`lignes.${index}.description`, draft.description);
+    devisForm.setValue(`lignes.${index}.quantite`, draft.quantite, { shouldValidate: true });
+    devisForm.setValue(`lignes.${index}.unite`, draft.unite as UnitePrestationCode);
+    devisForm.setValue(`lignes.${index}.prixUnitaireHT`, draft.prixUnitaireHT, { shouldValidate: true });
+    devisForm.setValue(`lignes.${index}.tauxTVA`, draft.tauxTVA as TauxTVA);
+    setLigneEditor(null);
+  }
 
   const startNewDevis = () => {
     setEditingDevisId(null);
@@ -652,8 +672,8 @@ export default function QuotesPage() {
                       <Button type="button" size="sm" onClick={() => append(createLigne())}><Plus className="mr-1 h-4 w-4" /> Ajouter une ligne</Button>
                     </div>
                     <div className="hidden md:grid md:grid-cols-12 md:gap-3 md:px-3 md:pb-1 text-xs font-medium uppercase tracking-wide text-white/60">
-                      <span className="md:col-span-4">Prestation</span>
-                      <span className="md:col-span-1">Qté</span>
+                      <span className="md:col-span-3">Prestation</span>
+                      <span className="md:col-span-2">Qté</span>
                       <span className="md:col-span-2">Unité</span>
                       <span className="md:col-span-2">PU HT</span>
                       <span className="md:col-span-1">TVA</span>
@@ -662,60 +682,33 @@ export default function QuotesPage() {
                     </div>
                     {fields.map((field, index) => {
                       const ligneCourante = watched.lignes?.[index];
-                      const totalLigneHT = ligneCourante ? calculateLigneTotalHT(ligneCourante) : 0;
+                      if (!ligneCourante) return null;
+                      const totalLigneHT = calculateLigneTotalHT(ligneCourante);
                       return (
-                        <div key={field.id} className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-black/20 p-3 md:grid-cols-12 md:items-end">
-                          <div className="md:col-span-4 space-y-1">
-                            <Label className="text-white/70 text-xs md:sr-only">Prestation (description)</Label>
-                            <Input className="bg-black/20 border-white/10" placeholder="Ex. : Peinture murs salon" {...devisForm.register(`lignes.${index}.description` as const, { required: true })} />
-                          </div>
-                          <div className="md:col-span-1 space-y-1">
-                            <Label className="text-white/70 text-xs md:sr-only">Quantité</Label>
-                            <Input className="bg-black/20 border-white/10" type="number" min="0.01" step="0.01" {...devisForm.register(`lignes.${index}.quantite` as const, { valueAsNumber: true, min: 0.01 })} />
-                          </div>
-                          <div className="md:col-span-2 space-y-1">
-                            <Label className="text-white/70 text-xs md:sr-only">Unité</Label>
-                            <select
-                              className="flex h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                              value={devisForm.watch(`lignes.${index}.unite`)}
-                              onChange={(e) =>
-                                devisForm.setValue(`lignes.${index}.unite`, e.target.value as UnitePrestationCode)
-                              }
-                            >
-                              {UNITE_OPTION_GROUPS.map((group) => (
-                                <optgroup key={group.label} label={group.label}>
-                                  {group.options.map((opt) => (
-                                    <option key={opt.code} value={opt.code}>
-                                      {opt.code} — {opt.libelle}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="md:col-span-2 space-y-1">
-                            <Label className="text-white/70 text-xs md:sr-only">Prix unitaire HT</Label>
-                            <Input className="bg-black/20 border-white/10" type="number" min="0.01" step="0.01" {...devisForm.register(`lignes.${index}.prixUnitaireHT` as const, { valueAsNumber: true, min: 0.01 })} />
-                          </div>
-                          <div className="md:col-span-1 space-y-1">
-                            <Label className="text-white/70 text-xs md:sr-only">TVA</Label>
-                            <Select value={String(devisForm.watch(`lignes.${index}.tauxTVA`))} onValueChange={(v) => devisForm.setValue(`lignes.${index}.tauxTVA`, Number(v) as TauxTVA)}>
-                              <SelectTrigger className="bg-black/20 border-white/10"><SelectValue /></SelectTrigger>
-                              <SelectContent>{TVA_OPTIONS.map((t) => <SelectItem key={String(t)} value={String(t)}>{t}%</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
-                          <div className="md:col-span-1 space-y-1">
-                            <Label className="text-white/70 text-xs md:sr-only">Total ligne HT (Qté × PU HT)</Label>
-                            <Input className="bg-black/30 border-white/10" value={formatCHF(totalLigneHT)} readOnly tabIndex={-1} aria-readonly="true" />
-                          </div>
-                          <div className="flex md:col-span-1 md:justify-end">
-                            <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} aria-label="Supprimer la ligne">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
+                        <LignePrestationRowCompact
+                          key={field.id}
+                          ligneIndex={index}
+                          draft={ligneDraftFromFields(ligneCourante)}
+                          totalHT={totalLigneHT}
+                          layout="grid"
+                          canRemove={fields.length > 1}
+                          onRemove={() => remove(index)}
+                          onOpenEditor={(focus) => setLigneEditor({ index, focus })}
+                        />
                       );
                     })}
+                    {ligneEditor !== null && watched.lignes?.[ligneEditor.index] && (
+                      <LignePrestationEditorDialog
+                        open
+                        onOpenChange={(open) => {
+                          if (!open) setLigneEditor(null);
+                        }}
+                        ligneIndex={ligneEditor.index}
+                        initialDraft={ligneDraftFromFields(watched.lignes[ligneEditor.index])}
+                        initialFocus={ligneEditor.focus}
+                        onApply={(draft) => handleLigneApply(ligneEditor.index, draft)}
+                      />
+                    )}
                   </div>
 
                   <div className="rounded-lg border border-white/10 p-4">
