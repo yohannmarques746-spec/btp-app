@@ -72,6 +72,17 @@ export function useFactures() {
 
   useEffect(() => {
     refresh();
+
+    const channel = supabase
+      .channel("factures-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "factures" }, () => {
+        refresh();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [refresh]);
 
   const saveFacture = useCallback(async (facture: Omit<FactureRecord, "id">, id?: string) => {

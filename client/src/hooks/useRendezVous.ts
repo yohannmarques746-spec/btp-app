@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { getCurrentUserId } from './useChantiers';
 import type { RendezVous, RendezVousInsert, RendezVousUpdate } from '@/types/rendezVous';
@@ -17,6 +17,8 @@ export function useRendezVous(): UseRendezVousReturn {
   const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Mémorise le dernier mois affiché pour pouvoir le re-fetch sur un event realtime.
+  const lastMonthRef = useRef<Date | null>(null);
 
   // Convention dates : YYYY-MM-DD en locale (jamais toISOString qui décale en UTC)
   const toLocalDateStr = (d: Date): string => {
@@ -27,6 +29,7 @@ export function useRendezVous(): UseRendezVousReturn {
   };
 
   const refreshForMonth = useCallback(async (month: Date) => {
+    lastMonthRef.current = month;
     setLoading(true);
     setError(null);
     const start = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -42,6 +45,20 @@ export function useRendezVous(): UseRendezVousReturn {
     else setRendezVous((data as RendezVous[]) ?? []);
     setLoading(false);
   }, []);
+
+  // Realtime : à chaque INSERT/UPDATE/DELETE sur rendez_vous, on re-fetch le mois courant.
+  useEffect(() => {
+    const channel = supabase
+      .channel('rendez_vous-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rendez_vous' }, () => {
+        if (lastMonthRef.current) void refreshForMonth(lastMonthRef.current);
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [refreshForMonth]);
 
   const createRendezVous = useCallback(async (data: RendezVousInsert) => {
     const userId = await getCurrentUserId();
@@ -70,5 +87,3 @@ export function useRendezVous(): UseRendezVousReturn {
 
   return { rendezVous, loading, error, refreshForMonth, createRendezVous, updateRendezVous, deleteRendezVous };
 }
-
-// TODO: realtime postgres_changes sur rendez_vous — à ajouter après validation CRUD manuel
