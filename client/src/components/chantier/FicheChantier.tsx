@@ -176,6 +176,7 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
 
         <FinancialSection
           data={chantierData.financier}
+          clientId={chantierData.clientId}
           onSave={(updated) => setChantierData((prev) => ({ ...prev, financier: updated }))}
         />
 
@@ -186,6 +187,7 @@ export function FicheChantier({ id, onBack }: FicheChantierProps) {
             documentsUploades: chantierData.documentsUploades,
           }}
           clientId={chantierData.clientId}
+          chantierId={chantierData.id}
           onSave={async (updated) => {
             setChantierData((prev) => ({ ...prev, ...updated }));
             const { error } = await updateChantier(id, {

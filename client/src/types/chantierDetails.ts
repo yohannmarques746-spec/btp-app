@@ -30,6 +30,14 @@ export interface LigneFinanciere {
   acomptesRecus: number;
   resteAFacturer: number;
   avancementFinancierPercent: number;
+  /** Devis source du montant HT (lien optionnel vers la fiche Devis). */
+  devisId?: string;
+  /** Numéro de devis (sérialisé en base, garde la rétro-compatibilité string[]). */
+  devisNumero?: string;
+  /** Facture source du montant facturé (lien optionnel vers la fiche Facture). */
+  factureId?: string;
+  /** Numéro de facture (sérialisé en base, garde la rétro-compatibilité string[]). */
+  factureNumero?: string;
 }
 
 export interface DocumentLie {
