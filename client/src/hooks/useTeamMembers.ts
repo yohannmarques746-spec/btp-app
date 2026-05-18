@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { supabase, getCurrentUserId } from "@/lib/supabase";
 
 export interface TeamMemberLite {
@@ -29,6 +29,7 @@ function mapRow(row: RawTeamMemberRow): TeamMemberLite {
  *   effectuées depuis d'autres écrans (ex : page Équipe).
  */
 export function useTeamMembers() {
+  const instanceId = useId();
   const [members, setMembers] = useState<TeamMemberLite[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +68,7 @@ export function useTeamMembers() {
     void refresh();
 
     const channel = supabase
-      .channel("team-members-realtime")
+      .channel(`team-members-realtime-${instanceId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "team_members" },
@@ -80,7 +81,7 @@ export function useTeamMembers() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [refresh]);
+  }, [refresh, instanceId]);
 
   return { members, loading, error, refresh };
 }

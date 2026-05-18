@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { supabase, getCurrentUserId } from "@/lib/supabase";
 
 export type FactureStatus = "non_payee" | "payee" | "en_retard";
@@ -52,6 +52,7 @@ function mapFacture(row: {
 }
 
 export function useFactures() {
+  const instanceId = useId();
   const [factures, setFactures] = useState<FactureRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +75,7 @@ export function useFactures() {
     refresh();
 
     const channel = supabase
-      .channel("factures-realtime")
+      .channel(`factures-realtime-${instanceId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "factures" }, () => {
         refresh();
       })
@@ -83,7 +84,7 @@ export function useFactures() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [refresh]);
+  }, [refresh, instanceId]);
 
   const saveFacture = useCallback(async (facture: Omit<FactureRecord, "id">, id?: string) => {
     setError(null);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { supabase, getCurrentUserId } from "@/lib/supabase";
 import { normalizeUniteLegacy } from "@/constants/unitesPrestation";
 import type { Devis, Emetteur, LignePrestation } from "@/types/devis";
@@ -75,6 +75,7 @@ function mapRowToDevis(row: {
 }
 
 export function useDevis() {
+  const instanceId = useId();
   const [devisList, setDevisList] = useState<Devis[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +100,7 @@ export function useDevis() {
   useEffect(() => {
     refresh();
     const channel = supabase
-      .channel("devis-realtime")
+      .channel(`devis-realtime-${instanceId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "devis" }, () => {
         refresh();
       })
@@ -107,7 +108,7 @@ export function useDevis() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [refresh]);
+  }, [refresh, instanceId]);
 
   const saveDevis = useCallback(async (devis: Devis, id?: string) => {
     setError(null);
